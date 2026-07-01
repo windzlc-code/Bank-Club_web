@@ -188,6 +188,26 @@ const priorityLabels: Record<LeadPriority, string> = {
   needs_review: "需人工判斷",
   high: "高優先",
 };
+const purposeLabels: Record<string, string> = {
+  daily: "生活消費",
+  living: "生活消費",
+  renovation: "房屋修繕",
+  business: "合法營運週轉",
+  unsure: "不確定，先諮詢專員",
+  high_risk: "投資理財或高風險用途",
+};
+const creditCaseSourceLabels: Record<string, string> = {
+  company_preferential: "公司優惠貸款",
+  specialist_referral: "專員協助確認",
+  online_application: "站內網路申請",
+  unsure: "不確定，先諮詢",
+};
+const creditProgramLabels: Record<string, string> = {
+  binding: "綁約方案",
+  non_binding: "不綁約方案",
+  flexible: "彈性方案",
+  unsure: "不確定，先諮詢",
+};
 const fbPostStatusLabels: Record<FbPostStatus, string> = {
   not_started: "尚未發文",
   copied: "已複製待發布",
@@ -317,6 +337,16 @@ function maskLineId(lineId: string) {
   if (lineId.includes("*")) return lineId;
   if (lineId.length < 4) return "已遮罩";
   return `${lineId.slice(0, 2)}***${lineId.slice(-1)}`;
+}
+
+function labelValue(label: string, value: string | number | null | undefined) {
+  const normalized = value === null || value === undefined || value === "" ? "未填" : value;
+  return (
+    <span className="detail-field">
+      <small>{label}</small>
+      <b>{normalized}</b>
+    </span>
+  );
 }
 
 function articleComplianceFlags(data: FormData): ArticleComplianceFlags {
@@ -1409,15 +1439,34 @@ export function AdminApp() {
               <h2>線索詳情</h2>
               {selected ? (
                 <>
-                  <p>{selected.name}｜{identityLabels[selected.identityType]}｜{canViewLeadContacts ? selected.phone : maskPhone(selected.phone)}</p>
-                  <p>LINE ID：{canViewLeadContacts ? selected.lineId || "未填" : maskLineId(selected.lineId)}｜來源：{selected.sourceChannel || selected.sourcePage}</p>
-                  <p>負責專員：{specialists.find((item) => item.id === selected.assignedTo)?.name || "未指派"}｜下次跟進：{selected.nextFollowUpAt || "未設定"}</p>
-                  <p>
-                    通知狀態：{notificationLabels[selected.notificationStatus] || selected.notificationStatus}
-                    {selected.notifiedAt ? `｜${new Date(selected.notifiedAt).toLocaleString("zh-TW")}` : ""}
-                    {`｜嘗試 ${selected.notificationAttempts || 0} 次`}
-                    {selected.notificationError ? `｜${selected.notificationError}` : ""}
-                  </p>
+                  <div className="lead-detail-card">
+                    <strong>基本聯絡與跟進</strong>
+                    <div className="lead-detail-grid">
+                      {labelValue("姓名", selected.name)}
+                      {labelValue("身份類型", identityLabels[selected.identityType])}
+                      {labelValue("貸款類型", loanLabels[selected.loanType])}
+                      {labelValue("手機", canViewLeadContacts ? selected.phone : maskPhone(selected.phone))}
+                      {labelValue("LINE ID", canViewLeadContacts ? selected.lineId || "未填" : maskLineId(selected.lineId))}
+                      {labelValue("案件狀態", statusLabels[selected.status])}
+                      {labelValue("負責專員", specialists.find((item) => item.id === selected.assignedTo)?.name || "未指派")}
+                      {labelValue("下次跟進", selected.nextFollowUpAt ? new Date(selected.nextFollowUpAt).toLocaleString("zh-TW") : "未設定")}
+                    </div>
+                  </div>
+                  <div className="lead-detail-card">
+                    <strong>來源與通知</strong>
+                    <div className="lead-detail-grid">
+                      {labelValue("來源", selected.sourceChannel || selected.sourcePage)}
+                      {labelValue("來源頁", selected.sourcePage || "未記錄")}
+                      {labelValue("Session", selected.sessionId || "未記錄")}
+                      {labelValue("UTM", [selected.utmSource || "-", selected.utmMedium || "-", selected.utmCampaign || "-", selected.utmContent || "-", selected.utmTerm || "-"].join(" / "))}
+                      {labelValue("通知狀態", `${notificationLabels[selected.notificationStatus] || selected.notificationStatus}${selected.notifiedAt ? ` / ${new Date(selected.notifiedAt).toLocaleString("zh-TW")}` : ""} / 嘗試 ${selected.notificationAttempts || 0} 次`)}
+                      {labelValue("通知錯誤", selected.notificationError || "無")}
+                      {labelValue("個資同意", selected.consentAt ? new Date(selected.consentAt).toLocaleString("zh-TW") : "未記錄")}
+                      {labelValue("同意版本", selected.consentVersion || "未記錄")}
+                      {labelValue("IP", selected.ip || "未記錄")}
+                      {labelValue("裝置", selected.userAgent ? selected.userAgent.slice(0, 96) : "未記錄")}
+                    </div>
+                  </div>
                   <div className="row-actions">
                     <button
                       type="button"
@@ -1428,37 +1477,34 @@ export function AdminApp() {
                       重送通知
                     </button>
                   </div>
-                  <p>個資同意：{selected.consentAt ? new Date(selected.consentAt).toLocaleString("zh-TW") : "未記錄"}｜版本：{selected.consentVersion || "未記錄"}</p>
-                  <p>來源頁：{selected.sourcePage || "未記錄"}｜Session：{selected.sessionId || "未記錄"}｜UTM：{selected.utmSource || "-"} / {selected.utmMedium || "-"} / {selected.utmCampaign || "-"} / {selected.utmContent || "-"} / {selected.utmTerm || "-"}</p>
-                  <p>IP：{selected.ip || "未記錄"}｜裝置：{selected.userAgent ? selected.userAgent.slice(0, 96) : "未記錄"}</p>
                   <div className="lead-extra">
                     <strong>需求摘要</strong>
-                    <span>期望金額：{selected.desiredAmount ? selected.desiredAmount.toLocaleString("zh-TW") : "未填"}</span>
-                    <span>預約時段：{selected.appointmentTime ? new Date(selected.appointmentTime).toLocaleString("zh-TW") : "未填"}</span>
-                    <span>資金用途：{selected.purpose || "未填"}</span>
-                    <span>建立：{selected.createdAt ? new Date(selected.createdAt).toLocaleString("zh-TW") : "未記錄"}</span>
-                    <span>更新：{selected.updatedAt ? new Date(selected.updatedAt).toLocaleString("zh-TW") : "未記錄"}</span>
-                    <span className="full-field">表單備註：{selected.note || "未填"}</span>
+                    {labelValue("期望金額", selected.desiredAmount ? selected.desiredAmount.toLocaleString("zh-TW") : "未填")}
+                    {labelValue("預約時段", selected.appointmentTime ? new Date(selected.appointmentTime).toLocaleString("zh-TW") : "未填")}
+                    {labelValue("資金用途", purposeLabels[selected.purpose] || selected.purpose || "未填")}
+                    {labelValue("建立時間", selected.createdAt ? new Date(selected.createdAt).toLocaleString("zh-TW") : "未記錄")}
+                    {labelValue("更新時間", selected.updatedAt ? new Date(selected.updatedAt).toLocaleString("zh-TW") : "未記錄")}
+                    <span className="detail-field full-field"><small>表單備註</small><b>{selected.note || "未填"}</b></span>
                   </div>
                   {selected.loanType === "house" ? (
                     <div className="lead-extra">
                       <strong>房屋資料</strong>
-                      <span>地區：{selected.propertyRegion || "未填"}</span>
-                      <span>類型：{selected.propertyType || "未填"}</span>
-                      <span>預估市值：{selected.estimatedPropertyValue ? selected.estimatedPropertyValue.toLocaleString("zh-TW") : "未填"}</span>
-                      <span>既有貸款：{selected.existingMortgage || "未填"}</span>
+                      {labelValue("地區", selected.propertyRegion || "未填")}
+                      {labelValue("類型", selected.propertyType || "未填")}
+                      {labelValue("預估市值", selected.estimatedPropertyValue ? selected.estimatedPropertyValue.toLocaleString("zh-TW") : "未填")}
+                      {labelValue("既有貸款", selected.existingMortgage || "未填")}
                     </div>
                   ) : null}
                   {creditApplication ? (
                     <div className="lead-extra">
                       <strong>信貸網路申請</strong>
-                      <span>申請編號：{creditApplication.applicationNo}</span>
-                      <span>申請金額：{creditApplication.requestedAmount ? creditApplication.requestedAmount.toLocaleString("zh-TW") : "未填"}</span>
-                      <span>申請年限：{creditApplication.requestedTermYears || "未填"} 年</span>
-                      <span>案件來源：{creditApplication.caseSource || "未填"}</span>
-                      <span>適用方案：{creditApplication.programType || "未填"}</span>
-                      <span>身分證上傳：{creditApplication.idUploadStatus}</span>
-                      <span>財力 LINE 補件：{creditApplication.financialLineStatus}</span>
+                      {labelValue("申請編號", creditApplication.applicationNo)}
+                      {labelValue("申請金額", creditApplication.requestedAmount ? creditApplication.requestedAmount.toLocaleString("zh-TW") : "未填")}
+                      {labelValue("申請年限", creditApplication.requestedTermYears ? `${creditApplication.requestedTermYears} 年` : "未填")}
+                      {labelValue("案件來源", creditCaseSourceLabels[creditApplication.caseSource] || creditApplication.caseSource || "未填")}
+                      {labelValue("適用方案", creditProgramLabels[creditApplication.programType] || creditApplication.programType || "未填")}
+                      {labelValue("身分證上傳", creditApplication.idUploadStatus)}
+                      {labelValue("財力 LINE 補件", creditApplication.financialLineStatus)}
                       <div className="full-field admin-file-list">
                         <strong>身分證安全文件</strong>
                         {creditApplicationFiles.length ? creditApplicationFiles.map((file) => (
@@ -1503,13 +1549,13 @@ export function AdminApp() {
                   {houseLoanApplication ? (
                     <div className="lead-extra">
                       <strong>房貸申請詳情</strong>
-                      <span>申請編號：{houseLoanApplication.applicationNo}</span>
-                      <span>房貸類型：{houseLoanApplication.houseLoanType || "未填"}</span>
-                      <span>所在地：{[houseLoanApplication.propertyCity, houseLoanApplication.propertyArea].filter(Boolean).join(" ") || "未填"}</span>
-                      <span>房屋用途：{houseLoanApplication.propertyUsage || "未填"}</span>
-                      <span>持有狀態：{houseLoanApplication.ownershipStatus || "未填"}</span>
-                      <span>期望金額：{houseLoanApplication.requestedAmount ? houseLoanApplication.requestedAmount.toLocaleString("zh-TW") : "未填"}</span>
-                      <span>期望年限：{houseLoanApplication.requestedTermYears || "未填"} 年</span>
+                      {labelValue("申請編號", houseLoanApplication.applicationNo)}
+                      {labelValue("房貸類型", houseLoanApplication.houseLoanType || "未填")}
+                      {labelValue("所在地", [houseLoanApplication.propertyCity, houseLoanApplication.propertyArea].filter(Boolean).join(" ") || "未填")}
+                      {labelValue("房屋用途", houseLoanApplication.propertyUsage || "未填")}
+                      {labelValue("持有狀態", houseLoanApplication.ownershipStatus || "未填")}
+                      {labelValue("期望金額", houseLoanApplication.requestedAmount ? houseLoanApplication.requestedAmount.toLocaleString("zh-TW") : "未填")}
+                      {labelValue("期望年限", houseLoanApplication.requestedTermYears ? `${houseLoanApplication.requestedTermYears} 年` : "未填")}
                       <label className="full-field">
                         LINE 補件狀態
                         <select
@@ -1527,22 +1573,22 @@ export function AdminApp() {
                   {selected.loanType === "business" ? (
                     <div className="lead-extra">
                       <strong>企業資料</strong>
-                      <span>公司 / 商號：{selected.companyName || "未填"}</span>
-                      <span>登記型態：{selected.businessRegistrationType || "未填"}</span>
-                      <span>月營收概估：{selected.monthlyRevenue ? selected.monthlyRevenue.toLocaleString("zh-TW") : "未填"}</span>
+                      {labelValue("公司 / 商號", selected.companyName || "未填")}
+                      {labelValue("登記型態", selected.businessRegistrationType || "未填")}
+                      {labelValue("月營收概估", selected.monthlyRevenue ? selected.monthlyRevenue.toLocaleString("zh-TW") : "未填")}
                     </div>
                   ) : null}
                   {businessLoanApplication ? (
                     <div className="lead-extra">
                       <strong>企業貸申請詳情</strong>
-                      <span>申請編號：{businessLoanApplication.applicationNo}</span>
-                      <span>貸款類型：{businessLoanApplication.businessLoanType || "未填"}</span>
-                      <span>公司 / 商號：{businessLoanApplication.businessName || "未填"}</span>
-                      <span>企業型態：{businessLoanApplication.businessType || "未填"}</span>
-                      <span>所在地：{businessLoanApplication.businessLocation || "未填"}</span>
-                      <span>營業年數：{businessLoanApplication.operatingYears ?? "未填"}</span>
-                      <span>月營收區間：{businessLoanApplication.monthlyRevenueRange || "未填"}</span>
-                      <span>期望金額：{businessLoanApplication.requestedAmount ? businessLoanApplication.requestedAmount.toLocaleString("zh-TW") : "未填"}</span>
+                      {labelValue("申請編號", businessLoanApplication.applicationNo)}
+                      {labelValue("貸款類型", businessLoanApplication.businessLoanType || "未填")}
+                      {labelValue("公司 / 商號", businessLoanApplication.businessName || "未填")}
+                      {labelValue("企業型態", businessLoanApplication.businessType || "未填")}
+                      {labelValue("所在地", businessLoanApplication.businessLocation || "未填")}
+                      {labelValue("營業年數", businessLoanApplication.operatingYears ?? "未填")}
+                      {labelValue("月營收區間", businessLoanApplication.monthlyRevenueRange || "未填")}
+                      {labelValue("期望金額", businessLoanApplication.requestedAmount ? businessLoanApplication.requestedAmount.toLocaleString("zh-TW") : "未填")}
                       <label className="full-field">
                         LINE 補件狀態
                         <select

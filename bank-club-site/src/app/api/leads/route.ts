@@ -63,6 +63,21 @@ function normalizeTaiwanMobile(value: string) {
   return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7, 10)}`;
 }
 
+function normalizePhoneNumber(value: string, countryCode: string) {
+  const digits = phoneDigits(value);
+  const normalizedCountryCode = countryCode.trim() || "+886";
+  if (normalizedCountryCode === "+886") {
+    if (!/^09\d{8}$/.test(digits)) {
+      throw new Error("請填寫可聯繫的台灣手機號碼");
+    }
+    return normalizeTaiwanMobile(value);
+  }
+  if (!/^\+\d{1,4}$/.test(normalizedCountryCode) || digits.length < 6 || digits.length > 15) {
+    throw new Error("請填寫可聯繫的手機號碼，並確認國家或地區代碼正確");
+  }
+  return `${normalizedCountryCode} ${digits}`;
+}
+
 function normalizePurpose(value: string) {
   const purpose = value.trim();
   const normalized = purpose.toLowerCase();
@@ -161,7 +176,13 @@ export async function POST(request: Request) {
 
   const name = text(form.get("name"));
   const phoneInput = text(form.get("phone"));
-  const phone = normalizeTaiwanMobile(phoneInput);
+  const phoneCountryCode = text(form.get("phoneCountryCode")) || "+886";
+  let phone = "";
+  try {
+    phone = normalizePhoneNumber(phoneInput, phoneCountryCode);
+  } catch (error) {
+    return NextResponse.json({ message: error instanceof Error ? error.message : "請填寫可聯繫的手機號碼" }, { status: 400 });
+  }
   const lineId = text(form.get("lineId"));
   const identityType = text(form.get("identityType")) as IdentityType;
   const loanType = text(form.get("loanType")) as LoanType;
@@ -180,9 +201,6 @@ export async function POST(request: Request) {
   }
   if (loanType !== "unknown" && !lineId) {
     return missingFieldsResponse(["LINE ID"]);
-  }
-  if (!/^09\d{8}$/.test(phoneDigits(phoneInput))) {
-    return NextResponse.json({ message: "請填寫可聯繫的台灣手機號碼" }, { status: 400 });
   }
   const sensitiveNote = detectSensitiveLeadNote(note);
   if (sensitiveNote.blocked) {

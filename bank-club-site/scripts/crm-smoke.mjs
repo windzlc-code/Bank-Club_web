@@ -6,6 +6,7 @@ const dbPath = path.join(process.cwd(), ".data", "bank-club-db.json");
 const keepData = process.env.CRM_SMOKE_KEEP_DATA === "1";
 const defaultPassword = "admin123";
 const legacyDefaultPassword = "BankClub2026!";
+const onePixelPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l3+1MgAAAABJRU5ErkJggg==", "base64");
 const expectedLeadStatuses = [
   "new",
   "assigned",
@@ -100,6 +101,12 @@ async function submitLead() {
   form.set("identityType", "employee");
   form.set("loanType", "credit");
   form.set("desiredAmount", "800000");
+  form.set("requestedAmount", "800000");
+  form.set("requestedTermYears", "5");
+  form.set("caseSource", "company_preferential");
+  form.set("programType", "binding");
+  form.set("idFront", new File([onePixelPng], "crm-smoke-id-front.png", { type: "image/png" }));
+  form.set("idBack", new File([onePixelPng], "crm-smoke-id-back.png", { type: "image/png" }));
   form.set("appointmentTime", appointment);
   form.set("purpose", "unsure");
   form.set("note", "CRM 煙測：表單提交到後台跟進閉環。");

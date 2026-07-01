@@ -24,6 +24,28 @@ type CreditUploadState = {
 const allowedCreditFileTypes = new Set(["image/jpeg", "image/png", "image/heic", "image/heif"]);
 const creditFileMaxBytes = 8 * 1024 * 1024;
 const taiwanCities = ["台北市", "新北市", "桃園市", "台中市", "台南市", "高雄市", "基隆市", "新竹市", "新竹縣", "苗栗縣", "彰化縣", "南投縣", "雲林縣", "嘉義市", "嘉義縣", "屏東縣", "宜蘭縣", "花蓮縣", "台東縣", "澎湖縣", "金門縣", "連江縣"];
+const phoneCountryCodes = [
+  ["+886", "台灣 +886"],
+  ["+86", "中國大陸 +86"],
+  ["+852", "香港 +852"],
+  ["+853", "澳門 +853"],
+  ["+81", "日本 +81"],
+  ["+82", "韓國 +82"],
+  ["+65", "新加坡 +65"],
+  ["+60", "馬來西亞 +60"],
+  ["+66", "泰國 +66"],
+  ["+84", "越南 +84"],
+  ["+63", "菲律賓 +63"],
+  ["+62", "印尼 +62"],
+  ["+1", "美國 / 加拿大 +1"],
+  ["+44", "英國 +44"],
+  ["+61", "澳洲 +61"],
+  ["+64", "紐西蘭 +64"],
+  ["+49", "德國 +49"],
+  ["+33", "法國 +33"],
+  ["+39", "義大利 +39"],
+  ["+34", "西班牙 +34"],
+];
 
 function amountOptionsFor(loanType: LoanType) {
   if (loanType === "credit") {
@@ -266,14 +288,23 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
       <fieldset className="context-fields form-section">
         <legend>聯絡資料與需求類型</legend>
         <p className="field-note">先留下聯絡方式與貸款類型，再依所選類型填寫對應申請資料。</p>
-        <div className="field-grid">
+        <div className="field-grid contact-field-grid">
           <label>
             姓名
             <input name="name" required placeholder="請輸入姓名" />
           </label>
-          <label>
+          <label className="phone-field">
             手機
-            <input name="phone" required placeholder="09xx xxx xxx" inputMode="tel" />
+            <div className="phone-control">
+              <select name="phoneCountryCode" required defaultValue="+886" aria-label="手機國家或地區代碼">
+                {phoneCountryCodes.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <input name="phone" required placeholder="09xx xxx xxx" inputMode="tel" />
+            </div>
           </label>
           <label>
             LINE ID
