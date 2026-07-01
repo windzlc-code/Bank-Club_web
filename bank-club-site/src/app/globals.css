@@ -15,8 +15,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, "PingFang TC", "Noto Sans TC", Helvetica, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 body {
@@ -1116,6 +1116,47 @@ th {
   gap: 8px;
 }
 
+.document-flow-grid {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 28px 0 40px;
+}
+
+.document-flow-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+
+.document-flow-card span {
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.document-flow-card h2 {
+  color: #172334;
+  font-size: 22px;
+  margin: 4px 0 8px;
+}
+
+.document-flow-card p,
+.document-flow-card li {
+  color: #657269;
+  line-height: 1.7;
+}
+
+.document-flow-card ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
 .text-link {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -2184,6 +2225,7 @@ summary,
   .stats-columns,
   .site-map-links,
   .flow-guide-grid,
+  .document-flow-grid,
   .contact-page,
   .article-row {
     grid-template-columns: 1fr;

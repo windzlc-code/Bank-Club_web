@@ -10,6 +10,8 @@ import { materialAssets, materialAssetPath } from "@/lib/material-assets";
 import { createPageMetadata } from "@/lib/seo";
 import { readDB } from "@/lib/store";
 
+type DocumentFileType = "credit_docs" | "house_docs" | "business_docs";
+
 export const dynamic = "force-dynamic";
 export const metadata = createPageMetadata({
   title: "銀行資格與文件總整理｜信貸、房貸、企業貸文件清單｜銀行俱樂部",
@@ -21,30 +23,46 @@ export default async function DocumentsPage() {
   await connection();
   const db = await readDB();
   const publicFiles = db.files.filter((file) => file.visibility === "public");
-  const rows = [
+  const fileByType = new Map(publicFiles.map((file) => [file.type, file]));
+  const rows: Array<{
+    label: string;
+    audience: string;
+    qualification: string;
+    documents: string;
+    loanType: "credit" | "house" | "business";
+    fileType: DocumentFileType;
+    eventPrefix: string;
+    checkpoints: string[];
+  }> = [
     {
       label: "信用貸款",
       audience: "上班族、自營業主",
       qualification: "年齡、收入、信用",
-      documents: "身分證、財力證明",
+      documents: "站內信貸申請只上傳身分證正反面；薪轉、扣繳憑單、勞保或自營業主財力資料透過 LINE 確認補件方式。",
       loanType: "credit",
+      fileType: "credit_docs",
       eventPrefix: "documents_credit",
+      checkpoints: ["身分證正反面需清楚對焦，正反面缺一不可。", "申請金額與年限可先對照 700 萬、10 年方案欄位。", "財力證明不在本站普通表單上傳，先傳 LINE 給專員確認。"],
     },
     {
       label: "房屋貸款",
       audience: "有房族、購屋族",
       qualification: "房產條件、收入",
-      documents: "權狀、收入證明、稅單",
+      documents: "權狀、收入證明、稅單、銀行存摺等敏感文件不在本站上傳；先用清單整理，送出表單後由專員確認。",
       loanType: "house",
+      fileType: "house_docs",
       eventPrefix: "documents_house",
+      checkpoints: ["先整理房屋所在地、型態、用途與持有狀態。", "已有貸款時記錄目前銀行與剩餘本金概估。", "權狀、稅單與存摺透過 LINE 或專員確認補件方式。"],
     },
     {
       label: "企業貸款",
       audience: "企業主、商號負責人",
       qualification: "營業時間、營收",
-      documents: "報稅資料、存摺、執照",
+      documents: "營業登記、報稅資料、近 6 個月銀行往來、負責人資料與公司財務資料先做摘要整理，不在普通表單上傳。",
       loanType: "business",
+      fileType: "business_docs",
       eventPrefix: "documents_business",
+      checkpoints: ["先確認企業型態、營業年數、所在地與營收區間。", "統編、登記資料、報稅與流水只做清單提醒。", "敏感文件後續透過 LINE 或專員確認安全補件方式。"],
     },
   ];
   const documentsLineHref = lineHref(db.settings.lineUrl, { sourcePage: "documents" });
@@ -76,6 +94,14 @@ export default async function DocumentsPage() {
                   <td>{row.documents}</td>
                   <td>
                     <div className="table-actions">
+                      {fileByType.get(row.fileType) ? (
+                        <SessionDownloadLink
+                          className="text-link"
+                          href={`/api/files/${fileByType.get(row.fileType)?.id}/download?source=/documents&source_detail=${row.loanType}`}
+                        >
+                          PDF
+                        </SessionDownloadLink>
+                      ) : null}
                       <EventLink
                         className="text-link"
                         href={lineHref(db.settings.lineUrl, { sourcePage: "documents", sourceDetail: row.loanType })}
@@ -97,6 +123,47 @@ export default async function DocumentsPage() {
               ))}
             </tbody>
           </table>
+        </section>
+        <section className="document-flow-grid">
+          {rows.map((row) => {
+            const file = fileByType.get(row.fileType);
+            return (
+              <article className="document-flow-card" key={row.loanType}>
+                <div>
+                  <span>{row.label}</span>
+                  <h2>{row.label}文件準備清單</h2>
+                  <p>{row.documents}</p>
+                </div>
+                <ul>
+                  {row.checkpoints.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                <div className="table-actions">
+                  {file ? (
+                    <SessionDownloadLink className="outline-link" href={`/api/files/${file.id}/download?source=/documents&source_detail=${row.loanType}`}>
+                      下載 {row.label} PDF
+                    </SessionDownloadLink>
+                  ) : null}
+                  <EventLink
+                    className="outline-link"
+                    href={`/consultation?loan_type=${row.loanType}&source_page=documents`}
+                    eventName={`${row.eventPrefix}_form_click`}
+                  >
+                    填寫{row.label}申請
+                  </EventLink>
+                  <EventLink
+                    className="outline-link"
+                    href={lineHref(db.settings.lineUrl, { sourcePage: "documents", sourceDetail: `${row.loanType}_docs` })}
+                    eventName={`${row.eventPrefix}_line_click`}
+                    target={documentsLineHref.startsWith("http") ? "_blank" : undefined}
+                  >
+                    LINE 確認補件
+                  </EventLink>
+                </div>
+              </article>
+            );
+          })}
         </section>
         <section className="card-grid">
           {publicFiles.map((file) => (

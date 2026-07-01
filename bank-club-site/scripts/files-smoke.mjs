@@ -133,6 +133,34 @@ async function run() {
       fail("summary fileDownloads did not count public credit file downloads by source channel");
     }
 
+    const documentsLandingResponse = await fetch(`${baseUrl}/documents?files_smoke_landing=${encodeURIComponent(sessionId)}`);
+    const documentsLandingHtml = await documentsLandingResponse.text();
+    const documentsLandingText = visibleText(documentsLandingHtml);
+    for (const expectedText of [
+      "信用貸款文件準備清單",
+      "房屋貸款文件準備清單",
+      "企業貸款文件準備清單",
+      "下載 信用貸款 PDF",
+      "下載 房屋貸款 PDF",
+      "下載 企業貸款 PDF",
+      "財力證明不在本站普通表單上傳",
+      "權狀、稅單與存摺透過 LINE",
+      "敏感文件後續透過 LINE",
+    ]) {
+      if (!documentsLandingResponse.ok || !documentsLandingText.includes(expectedText)) {
+        fail(`documents landing missing checklist copy: ${expectedText}`);
+      }
+    }
+    for (const expectedHref of [
+      "/api/files/file-credit/download?source=/documents&source_detail=credit",
+      "/api/files/file-house/download?source=/documents&source_detail=house",
+      "/api/files/file-business/download?source=/documents&source_detail=business",
+    ]) {
+      if (!documentsLandingHtml.includes(expectedHref) && !documentsLandingHtml.includes(expectedHref.replaceAll("&", "&amp;"))) {
+        fail(`documents landing missing typed download href: ${expectedHref}`);
+      }
+    }
+
     const created = await fetchJson("/api/admin/files", {
       method: "POST",
       headers: adminHeaders,

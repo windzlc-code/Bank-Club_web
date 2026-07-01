@@ -1,19 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { createPageMetadata } from "@/lib/seo";
 import { readDB } from "@/lib/store";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   ...createPageMetadata({
@@ -44,10 +33,7 @@ export default async function RootLayout({
   const hasGa = isValidGaMeasurementId(gaMeasurementId);
 
   return (
-    <html
-      lang="zh-Hant"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="zh-Hant" className="h-full antialiased">
       <head>
         {searchConsoleVerification ? (
           <meta name="google-site-verification" content={searchConsoleVerification} />
