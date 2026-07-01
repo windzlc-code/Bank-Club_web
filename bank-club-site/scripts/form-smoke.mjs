@@ -105,7 +105,7 @@ function buildApiLeadForm({ name, phone, lineId, sessionId, website = "", note =
   form.set("phone", phone);
   form.set("lineId", lineId);
   form.set("identityType", "employee");
-  form.set("loanType", "credit");
+  form.set("loanType", "unknown");
   form.set("appointmentTime", futureDatetimeLocal(60));
   form.set("purpose", purpose);
   form.set("consent", "on");
@@ -241,7 +241,7 @@ async function run() {
     if ((await page.locator('select[name="identityType"]').inputValue()) !== "business_owner") {
       fail("business consultation query did not default identity type to business owner");
     }
-    if (!(await page.locator('input[name="companyName"]').isVisible())) {
+    if (!(await page.locator('input[name="businessName"]').isVisible())) {
       fail("business consultation query did not render business context fields");
     }
 
@@ -253,16 +253,19 @@ async function run() {
     await page.locator('input[name="desiredAmount"]').fill("750000");
     await page.locator('input[name="appointmentTime"]').fill(futureDatetimeLocal());
     await page.locator('select[name="purpose"]').selectOption("high_risk");
-    await page.locator('input[name="companyName"]').fill("表單煙測有限公司");
-    await page.locator('select[name="businessRegistrationType"]').selectOption("company");
-    await page.locator('input[name="monthlyRevenue"]').fill("1200000");
+    await page.locator('select[name="businessLoanType"]').selectOption("working_capital");
+    await page.locator('input[name="businessName"]').fill("表單煙測有限公司");
+    await page.locator('select[name="businessType"]').selectOption("company");
+    await page.locator('input[name="operatingYears"]').fill("3");
+    await page.locator('input[name="businessLocation"]').fill("新北市中和區");
+    await page.locator('select[name="monthlyRevenueRange"]').selectOption("over_1m");
     await page.locator('textarea[name="note"]').fill("Playwright 前台表單煙測：確認 UI 提交、來源追蹤、成功頁與後台線索。");
     await page.locator('input[name="consent"]').check();
 
     if (!(await page.getByRole("alert").getByText("資金用途需先確認是否符合銀行規範").isVisible())) {
       fail("high-risk purpose warning did not render");
     }
-    if (!(await page.locator('input[name="companyName"]').isVisible())) {
+    if (!(await page.locator('input[name="businessName"]').isVisible())) {
       fail("business context fields did not render");
     }
     await page.screenshot({ path: screenshotPaths.warning, fullPage: true });
@@ -276,7 +279,7 @@ async function run() {
     if (!(await page.getByRole("heading", { name: "已收到您的諮詢需求" }).isVisible())) {
       fail("success page identity check failed");
     }
-    for (const text of ["補件提醒", "透過 LINE 與專員確認補件方式", "不收身分證照片", "財力證明", "銀行存摺影本"]) {
+    for (const text of ["補件提醒", "透過 LINE 與專員確認補件方式", "權狀", "財力證明"]) {
       if (!(await page.getByText(text, { exact: false }).first().isVisible())) {
         fail(`success page missing sensitive-document handoff copy: ${text}`);
       }
@@ -353,7 +356,7 @@ async function run() {
       purpose: "high_risk",
       companyName: "表單煙測有限公司",
       businessRegistrationType: "company",
-      monthlyRevenue: 1200000,
+      monthlyRevenue: null,
       sourcePage: "/consultation-form-smoke",
       sourceChannel: "facebook",
       utmSource: "facebook",
@@ -397,7 +400,7 @@ async function run() {
     if ((await page.locator('select[name="identityType"]').inputValue()) !== "home_owner") {
       fail("house consultation query did not default identity type to homeowner");
     }
-    if (!(await page.locator('input[name="propertyRegion"]').isVisible())) {
+    if (!(await page.locator('input[name="propertyCity"]').isVisible())) {
       fail("house consultation query did not render property context fields");
     }
 
@@ -405,7 +408,7 @@ async function run() {
     if (!(await page.getByRole("heading", { name: "房屋貸款" }).isVisible())) {
       fail("house-loan page identity check failed");
     }
-    const houseForm = page.locator("section.form-section", { hasText: "房屋資料諮詢表" }).locator("form.lead-form");
+    const houseForm = page.locator("section.form-section", { hasText: "房屋貸款申請表" }).locator("form.lead-form");
     if ((await houseForm.count()) !== 1) fail("house-loan embedded consultation form is missing");
     if ((await houseForm.locator('select[name="loanType"]').inputValue()) !== "house") {
       fail("house-loan embedded consultation form did not default to house loan type");
@@ -420,7 +423,9 @@ async function run() {
     await houseForm.locator('input[name="desiredAmount"]').fill("1800000");
     await houseForm.locator('input[name="appointmentTime"]').fill(futureDatetimeLocal(72));
     await houseForm.locator('select[name="purpose"]').selectOption("renovation");
-    await houseForm.locator('input[name="propertyRegion"]').fill("新北市中和區");
+    await houseForm.locator('select[name="houseLoanType"]').selectOption("home_equity");
+    await houseForm.locator('input[name="propertyCity"]').fill("新北市");
+    await houseForm.locator('input[name="propertyArea"]').fill("中和區");
     await houseForm.locator('select[name="propertyType"]').selectOption("elevator");
     await houseForm.locator('input[name="estimatedPropertyValue"]').fill("16000000");
     await houseForm.locator('select[name="existingMortgage"]').selectOption("has_mortgage");
@@ -450,7 +455,7 @@ async function run() {
       identityType: "home_owner",
       purpose: "renovation",
       desiredAmount: 1800000,
-      propertyRegion: "新北市中和區",
+      propertyRegion: "新北市 中和區",
       propertyType: "elevator",
       estimatedPropertyValue: 16000000,
       existingMortgage: "has_mortgage",
@@ -494,7 +499,7 @@ async function run() {
     duplicateForm.set("phone", phone.replaceAll(" ", "-"));
     duplicateForm.set("lineId", "formSmokeDifferentLine");
     duplicateForm.set("identityType", "employee");
-    duplicateForm.set("loanType", "credit");
+    duplicateForm.set("loanType", "unknown");
     duplicateForm.set("appointmentTime", futureDatetimeLocal(58));
     duplicateForm.set("purpose", "daily");
     duplicateForm.set("consent", "on");

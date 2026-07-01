@@ -20,7 +20,13 @@ export const dynamic = "force-dynamic";
 export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ lead_id?: string }> }) {
   const params = await searchParams;
   await connection();
-  const { settings } = await readDB();
+  const db = await readDB();
+  const { settings } = db;
+  const leadId = params.lead_id || "";
+  const creditApplication = db.creditApplications.find((application) => application.leadId === leadId);
+  const houseLoanApplication = db.houseLoanApplications.find((application) => application.leadId === leadId);
+  const businessLoanApplication = db.businessLoanApplications.find((application) => application.leadId === leadId);
+  const applicationNo = creditApplication?.applicationNo || houseLoanApplication?.applicationNo || businessLoanApplication?.applicationNo || "";
   const successLineHref = lineHref(settings.lineUrl, { sourcePage: "success", leadId: params.lead_id || "" });
   const successFbHref = fbHref(settings.fbGroupUrl, { sourcePage: "success", leadId: params.lead_id || "" });
   return (
@@ -29,6 +35,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
         <section className="success-panel">
           <h1>已收到您的諮詢需求</h1>
           <p>線索編號：{params.lead_id || "已建立"}</p>
+          {applicationNo ? <p>申請編號：{applicationNo}</p> : null}
           <p>專員會依您留下的手機或 LINE ID 跟進。若想加快溝通，可直接掃描 QR Code 或加入 FB 社團。</p>
           <div className="success-contact">
             <div>
@@ -49,8 +56,12 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
           </div>
           <div className="success-notice">
             <strong>補件提醒</strong>
-            <p>請先透過 LINE 與專員確認補件方式，再提供財力證明、薪轉、報稅或銀行流水等資料。</p>
-            <p>本網站不收身分證照片、財力證明、銀行存摺影本或稅務文件，請勿直接上傳或貼上完整敏感文件內容。</p>
+            {creditApplication ? (
+              <p>身分證上傳狀態：{creditApplication.idUploadStatus}。財力證明請傳 LINE 給專員確認，不要再透過本站上傳薪轉、扣繳憑單或報稅資料。</p>
+            ) : (
+              <p>請先透過 LINE 與專員確認補件方式，再提供權狀、財力證明、薪轉、報稅、銀行流水或營業資料等文件。</p>
+            )}
+            <p>請勿在一般備註或聊天室中貼上完整身分證字號、銀行帳號、稅務文件內容；補件方式以專員確認的安全通道為準。</p>
           </div>
         </section>
         <BreadcrumbJsonLd current="諮詢需求已送出" path="/success" />

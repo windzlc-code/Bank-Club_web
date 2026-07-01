@@ -44,6 +44,10 @@ export async function GET(_: Request, { params }: Params) {
       lead,
       notes: db.leadNotes.filter((note) => note.leadId === id),
       assignments: db.leadAssignments.filter((assignment) => assignment.leadId === id),
+      creditApplication: db.creditApplications.find((application) => application.leadId === id) || null,
+      creditApplicationFiles: db.creditApplicationFiles.filter((file) => file.applicationId === db.creditApplications.find((application) => application.leadId === id)?.id),
+      houseLoanApplication: db.houseLoanApplications.find((application) => application.leadId === id) || null,
+      businessLoanApplication: db.businessLoanApplications.find((application) => application.leadId === id) || null,
     };
   });
   if (result === "forbidden") return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -52,6 +56,10 @@ export async function GET(_: Request, { params }: Params) {
     lead: result.lead,
     notes: result.notes,
     assignments: result.assignments,
+    creditApplication: result.creditApplication,
+    creditApplicationFiles: result.creditApplicationFiles,
+    houseLoanApplication: result.houseLoanApplication,
+    businessLoanApplication: result.businessLoanApplication,
   });
 }
 

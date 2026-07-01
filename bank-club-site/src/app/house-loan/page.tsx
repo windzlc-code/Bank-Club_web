@@ -41,18 +41,40 @@ export default async function HouseLoanPage() {
           </div>
         </section>
         <section className="card-grid">
-          {["購屋首貸", "房屋增貸", "轉增貸", "二胎房貸", "老屋修繕貸款"].map((item) => (
+          {[
+            ["購屋首貸", "購屋中或準備買房，先整理收入、頭期款與預估房價。"],
+            ["房屋增貸", "已有房產想增加資金，需看鑑價、既有貸款與收入負債比。"],
+            ["轉增貸", "評估轉貸並增加可用資金，需比較目前銀行、剩餘本金與成本。"],
+            ["二胎房貸", "已有一胎設定時評估第二順位方案，條件與成本需由專員初評。"],
+            ["老屋修繕貸款", "修繕、整修或裝潢用途，依房屋條件與資金用途整理。"],
+          ].map(([item, text]) => (
             <article className="small-card" key={item}>
               <h2>{item}</h2>
-              <p>依房產條件、收入、負債與銀行鑑價結果評估成數、年限與利率。</p>
+              <p>{text}</p>
             </article>
           ))}
         </section>
         <FinancialDisclosure />
+        <section className="two-col">
+          <div className="info-block">
+            <h2>房貸文件提醒</h2>
+            <ul>
+              <li>常見文件包含身分證、房屋權狀、收入證明、稅單、銀行存摺。</li>
+              <li>本站房貸表單不收權狀、稅單、收入證明等敏感文件。</li>
+              <li>送出後請透過 LINE 與專員確認實際補件方式。</li>
+            </ul>
+          </div>
+          <div className="warning-block">
+            <h2>真實填寫重點</h2>
+            <p>房屋所在地、房屋類型與是否已有貸款會影響初評。若已有貸款，請補充目前銀行與剩餘貸款金額，方便專員判斷可行方案。</p>
+          </div>
+        </section>
         <section className="content-section narrow">
           <h2>鑑價到撥款流程</h2>
           <ol className="step-list">
-            <li>填寫房屋地區、類型、預估市值與是否已有貸款。</li>
+            <li>選擇房貸類型：購屋首貸、增貸、轉增貸、二胎或修繕。</li>
+            <li>填寫房屋地區、類型、用途、持有狀態、預估市值與是否已有貸款。</li>
+            <li>填寫期望金額、年限、資金用途與是否需要寬限期。</li>
             <li>專員協助初步整理房產條件與收入資料。</li>
             <li>銀行進行鑑價、審核、對保與撥款。</li>
           </ol>
@@ -60,7 +82,8 @@ export default async function HouseLoanPage() {
         <HouseLineQuickForm lineHref={lineHref(settings.lineUrl, { sourcePage: "house", sourceDetail: "property_quick_line" })} />
         <LoanCalculator title="房貸月付試算" />
         <section className="form-section">
-          <h2>房屋資料諮詢表</h2>
+          <h2>房屋貸款申請表</h2>
+          <p>送出後會產生房貸申請編號，後台自動標記為房屋貸款案件，專員再透過電話或 LINE 跟進補件。</p>
           <ConsultationForm defaultLoanType="house" defaultIdentityType="home_owner" />
         </section>
         <BreadcrumbJsonLd current="房屋貸款" path="/house-loan" />

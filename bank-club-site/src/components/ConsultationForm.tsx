@@ -41,6 +41,8 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
   const [formStartedAt] = useState(() => Date.now().toString());
   const [loanType, setLoanType] = useState<LoanType>(defaultLoanType as LoanType);
   const [purpose, setPurpose] = useState("unsure");
+  const [idFrontName, setIdFrontName] = useState("");
+  const [idBackName, setIdBackName] = useState("");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -139,25 +141,123 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
       {purpose === "high_risk" ? (
         <div className="warning-block form-warning" role="alert">
           <h3>資金用途需先確認是否符合銀行規範</h3>
-          <p>貸款資金不得用於投資理財、股票操作或其他不符合銀行規範的用途。請勿包裝或填寫不真實用途，建議先由專員協助釐清是否可送件。</p>
+          <p>請依本人真實需求、銀行官方頁面與個案審核結果填寫，不要包裝或填寫不真實用途。不確定時先由專員協助確認是否適合送件。</p>
         </div>
+      ) : null}
+      {loanType === "credit" ? (
+        <fieldset className="context-fields">
+          <legend>信貸網路申請資料</legend>
+          <p className="field-note">本站信貸申請只收身分證正反面。財力證明請傳 LINE 給專員確認補件方式。</p>
+          <div className="field-grid">
+            <label>
+              申請金額
+              <input name="requestedAmount" defaultValue="7000000" required inputMode="numeric" />
+            </label>
+            <label>
+              申請年限
+              <select name="requestedTermYears" required defaultValue="10">
+                <option value="10">10 年</option>
+                <option value="7">7 年</option>
+                <option value="5">5 年</option>
+                <option value="3">3 年</option>
+              </select>
+            </label>
+            <label>
+              案件來源
+              <select name="caseSource" required defaultValue="company_preferential">
+                <option value="company_preferential">公司優惠貸款</option>
+                <option value="specialist_referral">專員協助確認</option>
+                <option value="unsure">不確定，先諮詢</option>
+              </select>
+            </label>
+            <label>
+              適用方案
+              <select name="programType" required defaultValue="binding">
+                <option value="binding">綁約方案</option>
+                <option value="non_binding">不綁約方案</option>
+                <option value="unsure">不確定，先諮詢</option>
+              </select>
+            </label>
+            <label>
+              身分證正面
+              <input
+                name="idFront"
+                type="file"
+                required
+                accept="image/jpeg,image/png,image/heic,image/heif"
+                onChange={(event) => setIdFrontName(event.currentTarget.files?.[0]?.name || "")}
+              />
+              <span className="field-help">{idFrontName || "支援 JPG、PNG、HEIC，請確認四角完整且清楚對焦。"}</span>
+            </label>
+            <label>
+              身分證反面
+              <input
+                name="idBack"
+                type="file"
+                required
+                accept="image/jpeg,image/png,image/heic,image/heif"
+                onChange={(event) => setIdBackName(event.currentTarget.files?.[0]?.name || "")}
+              />
+              <span className="field-help">{idBackName || "正反面缺一不可；若上傳失敗可刪除重選後再送出。"}</span>
+            </label>
+          </div>
+          <div className="warning-block form-warning">
+            <h3>信貸申請操作提醒</h3>
+            <p>填寫過程請使用站內返回修改，不要按瀏覽器上一頁。綁約方案可能涉及限制清償或提前清償費用，實際條件以銀行審核與契約為準。</p>
+          </div>
+        </fieldset>
       ) : null}
       {loanType === "house" ? (
         <fieldset className="context-fields">
-          <legend>房屋資料</legend>
+          <legend>房屋貸款申請資料</legend>
+          <p className="field-note">權狀、收入證明、稅單與存摺不在本站上傳；送出後由專員透過 LINE 確認補件方式。</p>
           <div className="field-grid">
             <label>
-              房屋地區
-              <input name="propertyRegion" placeholder="例如：新北市中和區" />
+              房貸類型
+              <select name="houseLoanType" required defaultValue="">
+                <option value="" disabled>請選擇</option>
+                <option value="first_purchase">購屋首貸</option>
+                <option value="home_equity">房屋增貸</option>
+                <option value="refinance">轉增貸</option>
+                <option value="second_mortgage">二胎房貸</option>
+                <option value="renovation">老屋修繕貸款</option>
+                <option value="unsure">不確定，先諮詢</option>
+              </select>
+            </label>
+            <label>
+              房屋縣市
+              <input name="propertyCity" required placeholder="例如：新北市" />
+            </label>
+            <label>
+              房屋區域
+              <input name="propertyArea" placeholder="例如：中和區" />
             </label>
             <label>
               房屋類型
-              <select name="propertyType" defaultValue="">
-                <option value="">尚不確定</option>
+              <select name="propertyType" required defaultValue="">
+                <option value="" disabled>請選擇</option>
                 <option value="apartment">公寓</option>
                 <option value="elevator">電梯大樓</option>
                 <option value="townhouse">透天 / 別墅</option>
                 <option value="factory">廠房 / 商辦</option>
+              </select>
+            </label>
+            <label>
+              房屋用途
+              <select name="propertyUsage" defaultValue="self_use">
+                <option value="self_use">自住</option>
+                <option value="rental">出租</option>
+                <option value="business_use">營業使用</option>
+                <option value="other">其他</option>
+              </select>
+            </label>
+            <label>
+              持有狀態
+              <select name="ownershipStatus" defaultValue="self_owned">
+                <option value="self_owned">本人持有</option>
+                <option value="family_owned">家人持有</option>
+                <option value="buying">購屋中</option>
+                <option value="other">其他</option>
               </select>
             </label>
             <label>
@@ -166,11 +266,30 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
             <label>
               是否已有貸款
-              <select name="existingMortgage" defaultValue="">
-                <option value="">尚不確定</option>
+              <select name="existingMortgage" required defaultValue="">
+                <option value="" disabled>請選擇</option>
                 <option value="none">無既有房貸</option>
                 <option value="has_mortgage">已有房貸</option>
                 <option value="second_mortgage">已有二胎或其他設定</option>
+              </select>
+            </label>
+            <label>
+              目前貸款銀行
+              <input name="currentBank" placeholder="已有貸款時可填" />
+            </label>
+            <label>
+              剩餘貸款金額
+              <input name="remainingBalance" placeholder="已有貸款時可填" inputMode="numeric" />
+            </label>
+            <label>
+              期望貸款年限
+              <input name="requestedTermYears" placeholder="例如：20" inputMode="numeric" />
+            </label>
+            <label>
+              是否需要寬限期
+              <select name="gracePeriodNeeded" defaultValue="no">
+                <option value="no">不需要或不確定</option>
+                <option value="yes">需要專員評估</option>
               </select>
             </label>
           </div>
@@ -178,25 +297,89 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
       ) : null}
       {loanType === "business" ? (
         <fieldset className="context-fields">
-          <legend>企業資料</legend>
+          <legend>企業貸款申請資料</legend>
+          <p className="field-note">報稅資料、存摺、執照與負責人財力證明不在本站上傳；送出後透過 LINE 與專員確認補件方式。</p>
           <div className="field-grid">
             <label>
-              公司 / 商號名稱
-              <input name="companyName" placeholder="可填公司、商號或品牌名稱" />
-            </label>
-            <label>
-              登記型態
-              <select name="businessRegistrationType" defaultValue="">
-                <option value="">尚不確定</option>
-                <option value="company">有限公司 / 股份有限公司</option>
-                <option value="business">商號 / 行號</option>
-                <option value="factory">工廠 / 廠房</option>
-                <option value="self_employed">自營接案</option>
+              企業貸款類型
+              <select name="businessLoanType" required defaultValue="">
+                <option value="" disabled>請選擇</option>
+                <option value="business_credit">企業信用貸</option>
+                <option value="factory_mortgage">廠房不動產抵押貸</option>
+                <option value="working_capital">營運週轉金貸款</option>
               </select>
             </label>
             <label>
-              月營收概估
-              <input name="monthlyRevenue" placeholder="可留空，或填概估金額" inputMode="numeric" />
+              公司 / 商號名稱
+              <input name="businessName" required placeholder="可填公司、商號或品牌名稱" />
+            </label>
+            <label>
+              統編 / 登記編號
+              <input name="registrationNo" placeholder="依實際情況填寫" />
+            </label>
+            <label>
+              企業型態
+              <select name="businessType" required defaultValue="">
+                <option value="" disabled>請選擇</option>
+                <option value="company">公司</option>
+                <option value="business">商號 / 行號</option>
+                <option value="self_employed">自營接案</option>
+                <option value="other">其他</option>
+              </select>
+            </label>
+            <label>
+              產業類別
+              <input name="industry" placeholder="例如：餐飲、工程、批發零售" />
+            </label>
+            <label>
+              營業年數
+              <input name="operatingYears" required placeholder="例如：3" inputMode="decimal" />
+            </label>
+            <label>
+              員工人數
+              <input name="employeeCount" placeholder="可留空" inputMode="numeric" />
+            </label>
+            <label>
+              企業所在地
+              <input name="businessLocation" required placeholder="例如：新北市中和區" />
+            </label>
+            <label>
+              近一年營業額區間
+              <select name="annualRevenueRange" defaultValue="">
+                <option value="">尚不確定</option>
+                <option value="under_1m">100 萬以下</option>
+                <option value="1m_5m">100 萬到 500 萬</option>
+                <option value="5m_20m">500 萬到 2,000 萬</option>
+                <option value="over_20m">2,000 萬以上</option>
+              </select>
+            </label>
+            <label>
+              月平均營收區間
+              <select name="monthlyRevenueRange" required defaultValue="">
+                <option value="" disabled>請選擇</option>
+                <option value="under_100k">10 萬以下</option>
+                <option value="100k_500k">10 萬到 50 萬</option>
+                <option value="500k_1m">50 萬到 100 萬</option>
+                <option value="over_1m">100 萬以上</option>
+              </select>
+            </label>
+            <label>
+              期望還款年限
+              <input name="requestedTermYears" placeholder="例如：5" inputMode="numeric" />
+            </label>
+            <label>
+              是否有抵押品
+              <select name="hasCollateral" defaultValue="no">
+                <option value="no">無或不確定</option>
+                <option value="yes">有</option>
+              </select>
+            </label>
+            <label>
+              是否已有企業貸款
+              <select name="hasExistingBusinessLoan" defaultValue="no">
+                <option value="no">無或不確定</option>
+                <option value="yes">有</option>
+              </select>
             </label>
           </div>
         </fieldset>

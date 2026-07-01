@@ -1,15 +1,20 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
+import { mkdir, writeFile } from "fs/promises";
+import path from "path";
 import { NextResponse } from "next/server";
 import { sendLeadNotification } from "@/lib/lead-notifications";
 import { detectSensitiveLeadNote } from "@/lib/sensitive-content";
 import { createAudit, mutateDB } from "@/lib/store";
-import type { IdentityType, Lead, LoanType } from "@/lib/types";
+import type { BusinessLoanApplication, CreditApplication, CreditApplicationFile, HouseLoanApplication, IdentityType, Lead, LoanType } from "@/lib/types";
 
 const recentSubmits = new Map<string, number[]>();
 const recentAttempts = new Map<string, number[]>();
 const rateLimitWindowMs = 60 * 60 * 1000;
 const rateLimitMax = 3;
 const attemptLimitMax = 20;
+const creditUploadDir = path.join(process.cwd(), ".data", "credit-application-files");
+const allowedCreditFileTypes = new Set(["image/jpeg", "image/png", "image/heic", "image/heif"]);
+const maxCreditFileBytes = 8 * 1024 * 1024;
 
 function text(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
@@ -26,6 +31,25 @@ function getClientIp(request: Request) {
 function optionalNumber(value: string) {
   const number = Number(value.replaceAll(",", ""));
   return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function optionalInteger(value: string) {
+  const number = optionalNumber(value);
+  return number === null ? null : Math.round(number);
+}
+
+function optionalDecimal(value: string) {
+  const number = Number(value.replaceAll(",", ""));
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function optionalBoolean(value: string) {
+  return value === "yes" || value === "true" || value === "on";
+}
+
+function applicationNo(prefix: "CR" | "HO" | "BU") {
+  const stamp = new Date().toISOString().replace(/\D/g, "").slice(2, 14);
+  return `${prefix}${stamp}${randomUUID().slice(0, 6).toUpperCase()}`;
 }
 
 function phoneDigits(value: string) {
@@ -54,6 +78,57 @@ function normalizePurpose(value: string) {
   if (purposeAliases[normalized]) return purposeAliases[normalized];
   if (highRiskPurposePattern.test(purpose)) return "high_risk";
   return "unsure";
+}
+
+function rawPurposeLabel(value: string) {
+  const labels: Record<string, string> = {
+    daily: "生活消費",
+    living: "生活消費",
+    renovation: "房屋修繕",
+    business: "合法營運週轉",
+    unsure: "不確定，先諮詢專員",
+    high_risk: "投資理財或高風險用途",
+  };
+  return labels[value] || value || "不確定，先諮詢專員";
+}
+
+function validateCreditFile(file: FormDataEntryValue | null, label: string): file is File {
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error(`請上傳${label}`);
+  }
+  if (file.size > maxCreditFileBytes) {
+    throw new Error(`${label}檔案需小於 8MB`);
+  }
+  if (!allowedCreditFileTypes.has(file.type)) {
+    throw new Error(`${label}僅支援 JPG、PNG、HEIC 圖片`);
+  }
+  return true;
+}
+
+async function storeCreditFile(file: File, applicationId: string, fileType: "id_front" | "id_back", createdAt: string): Promise<CreditApplicationFile> {
+  await mkdir(creditUploadDir, { recursive: true });
+  const id = randomUUID();
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const checksum = createHash("sha256").update(bytes).digest("hex");
+  const extension = file.type === "image/png" ? "png" : file.type === "image/heic" ? "heic" : file.type === "image/heif" ? "heif" : "jpg";
+  const storageKey = `${applicationId}/${fileType}-${id}.${extension}`;
+  await mkdir(path.join(creditUploadDir, applicationId), { recursive: true });
+  await writeFile(path.join(creditUploadDir, storageKey), bytes);
+  return {
+    id,
+    applicationId,
+    fileType,
+    originalName: file.name || `${fileType}.${extension}`,
+    storageKey,
+    mimeType: file.type,
+    sizeBytes: file.size,
+    checksum,
+    uploadStatus: "uploaded",
+    reviewedBy: "",
+    reviewedAt: "",
+    deletedAt: "",
+    createdAt,
+  };
 }
 
 export async function POST(request: Request) {
@@ -104,6 +179,23 @@ export async function POST(request: Request) {
     }, { status: 400 });
   }
 
+  let creditFiles: { front: CreditApplicationFile; back: CreditApplicationFile } | null = null;
+  const creditApplicationId = randomUUID();
+  if (loanType === "credit") {
+    try {
+      validateCreditFile(form.get("idFront"), "身分證正面");
+      validateCreditFile(form.get("idBack"), "身分證反面");
+      const uploadCreatedAt = new Date().toISOString();
+      const front = await storeCreditFile(form.get("idFront") as File, creditApplicationId, "id_front", uploadCreatedAt);
+      const back = await storeCreditFile(form.get("idBack") as File, creditApplicationId, "id_back", uploadCreatedAt);
+      creditFiles = { front, back };
+    } catch (error) {
+      return NextResponse.json({
+        message: error instanceof Error ? `${error.message}。財力證明不用上傳本站，請改透過 LINE 與專員確認。` : "身分證上傳失敗，請重試或改用 LINE 聯繫專員。",
+      }, { status: 400 });
+    }
+  }
+
   recentSubmits.set(ip, [...previousSubmits, now]);
   const leadId = randomUUID();
   const createdAt = new Date().toISOString();
@@ -128,15 +220,15 @@ export async function POST(request: Request) {
       lineId,
       identityType: normalizedIdentityType,
       loanType,
-      desiredAmount: optionalNumber(text(form.get("desiredAmount"))),
+      desiredAmount: optionalNumber(text(form.get("desiredAmount"))) || optionalNumber(text(form.get("requestedAmount"))),
       appointmentTime,
       purpose,
-      propertyRegion: text(form.get("propertyRegion")),
+      propertyRegion: text(form.get("propertyRegion")) || [text(form.get("propertyCity")), text(form.get("propertyArea"))].filter(Boolean).join(" "),
       propertyType: text(form.get("propertyType")),
       estimatedPropertyValue: optionalNumber(text(form.get("estimatedPropertyValue"))),
       existingMortgage: text(form.get("existingMortgage")),
-      companyName: text(form.get("companyName")),
-      businessRegistrationType: text(form.get("businessRegistrationType")),
+      companyName: text(form.get("companyName")) || text(form.get("businessName")),
+      businessRegistrationType: text(form.get("businessRegistrationType")) || text(form.get("businessType")),
       monthlyRevenue: optionalNumber(text(form.get("monthlyRevenue"))),
       note,
       sourcePage,
@@ -171,6 +263,101 @@ export async function POST(request: Request) {
       updatedAt: createdAt,
     };
     db.leads.unshift(lead);
+    if (loanType === "credit" && creditFiles) {
+      const creditApplication: CreditApplication = {
+        id: creditApplicationId,
+        applicationNo: applicationNo("CR"),
+        leadId,
+        name,
+        phone,
+        lineId,
+        identityType: normalizedIdentityType,
+        loanType: "credit",
+        requestedAmount: optionalInteger(text(form.get("requestedAmount"))) || optionalInteger(text(form.get("desiredAmount"))) || 7_000_000,
+        requestedTermYears: optionalInteger(text(form.get("requestedTermYears"))) || 10,
+        fundPurpose: rawPurposeLabel(rawPurpose),
+        caseSource: text(form.get("caseSource")) || "company_preferential",
+        programType: text(form.get("programType")) || "binding",
+        idFrontFileId: creditFiles.front.id,
+        idBackFileId: creditFiles.back.id,
+        idUploadStatus: "uploaded",
+        financialLineStatus: "reminded",
+        consentPersonalDataAt: createdAt,
+        status: "submitted",
+        assignedTo: lead.assignedTo,
+        createdAt,
+        updatedAt: createdAt,
+      };
+      lead.documentStatus = "pending";
+      db.creditApplications.unshift(creditApplication);
+      db.creditApplicationFiles.unshift(creditFiles.back, creditFiles.front);
+      db.auditLogs.unshift(createAudit("system", "credit_application_created", "credit_application", creditApplication.id));
+    }
+    if (loanType === "house") {
+      const houseApplication: HouseLoanApplication = {
+        id: randomUUID(),
+        applicationNo: applicationNo("HO"),
+        leadId,
+        name,
+        phone,
+        lineId,
+        houseLoanType: text(form.get("houseLoanType")) || "unsure",
+        propertyCity: text(form.get("propertyCity")) || text(form.get("propertyRegion")),
+        propertyArea: text(form.get("propertyArea")),
+        propertyType: text(form.get("propertyType")),
+        propertyUsage: text(form.get("propertyUsage")),
+        ownershipStatus: text(form.get("ownershipStatus")),
+        estimatedValue: optionalInteger(text(form.get("estimatedPropertyValue"))),
+        hasExistingMortgage: optionalBoolean(text(form.get("hasExistingMortgage"))) || text(form.get("existingMortgage")) === "has_mortgage" || text(form.get("existingMortgage")) === "second_mortgage",
+        currentBank: text(form.get("currentBank")),
+        remainingBalance: optionalInteger(text(form.get("remainingBalance"))),
+        requestedAmount: optionalInteger(text(form.get("requestedAmount"))) || optionalInteger(text(form.get("desiredAmount"))),
+        requestedTermYears: optionalInteger(text(form.get("requestedTermYears"))),
+        gracePeriodNeeded: optionalBoolean(text(form.get("gracePeriodNeeded"))),
+        fundPurpose: rawPurposeLabel(rawPurpose),
+        documentLineStatus: "reminded",
+        status: "submitted",
+        assignedTo: lead.assignedTo,
+        createdAt,
+        updatedAt: createdAt,
+      };
+      lead.documentStatus = "pending";
+      db.houseLoanApplications.unshift(houseApplication);
+      db.auditLogs.unshift(createAudit("system", "house_loan_application_created", "house_loan_application", houseApplication.id));
+    }
+    if (loanType === "business") {
+      const businessApplication: BusinessLoanApplication = {
+        id: randomUUID(),
+        applicationNo: applicationNo("BU"),
+        leadId,
+        ownerName: name,
+        phone,
+        lineId,
+        businessLoanType: text(form.get("businessLoanType")) || "working_capital",
+        businessName: text(form.get("businessName")) || text(form.get("companyName")),
+        registrationNo: text(form.get("registrationNo")),
+        businessType: text(form.get("businessType")) || text(form.get("businessRegistrationType")),
+        industry: text(form.get("industry")),
+        operatingYears: optionalDecimal(text(form.get("operatingYears"))),
+        employeeCount: optionalInteger(text(form.get("employeeCount"))),
+        businessLocation: text(form.get("businessLocation")),
+        annualRevenueRange: text(form.get("annualRevenueRange")),
+        monthlyRevenueRange: text(form.get("monthlyRevenueRange")),
+        requestedAmount: optionalInteger(text(form.get("requestedAmount"))) || optionalInteger(text(form.get("desiredAmount"))),
+        requestedTermYears: optionalInteger(text(form.get("requestedTermYears"))),
+        fundPurpose: rawPurposeLabel(rawPurpose),
+        hasCollateral: optionalBoolean(text(form.get("hasCollateral"))),
+        hasExistingBusinessLoan: optionalBoolean(text(form.get("hasExistingBusinessLoan"))),
+        documentLineStatus: "reminded",
+        status: "submitted",
+        assignedTo: lead.assignedTo,
+        createdAt,
+        updatedAt: createdAt,
+      };
+      lead.documentStatus = "pending";
+      db.businessLoanApplications.unshift(businessApplication);
+      db.auditLogs.unshift(createAudit("system", "business_loan_application_created", "business_loan_application", businessApplication.id));
+    }
     db.leadAssignments.unshift({
       id: randomUUID(),
       leadId,

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFbPostText } from "@/lib/fb-posts";
 import { allowedPublicResourceExtensions, maxPublicResourceUploadBytes } from "@/lib/file-resource-policy";
 import { identityLabels, loanLabels, statusLabels } from "@/lib/site-data";
-import type { Article, ArticleCategory, ArticleComplianceFlags, AuditLog, FileResource, Lead, LeadAssignment, LeadNote, LeadPriority, LeadStatus, SiteEvent, SiteSettings, UserRole } from "@/lib/types";
+import type { Article, ArticleCategory, ArticleComplianceFlags, AuditLog, BusinessLoanApplication, CreditApplication, CreditApplicationFile, FileResource, HouseLoanApplication, Lead, LeadAssignment, LeadNote, LeadPriority, LeadStatus, SiteEvent, SiteSettings, UserRole } from "@/lib/types";
 
 type User = { id: string; name: string; email: string; role: UserRole; twoFactorEnabled: boolean };
 type Specialist = { id: string; name: string; email: string; role: string };
@@ -84,6 +84,15 @@ type Summary = {
 
 type LeadFilters = { q: string; loanType: string; status: string; sourceChannel: string; assignedTo: string };
 type DocumentStatus = Lead["documentStatus"];
+type LeadDetailPayload = {
+  lead?: Lead;
+  notes?: LeadNote[];
+  assignments?: LeadAssignment[];
+  creditApplication?: CreditApplication | null;
+  creditApplicationFiles?: CreditApplicationFile[];
+  houseLoanApplication?: HouseLoanApplication | null;
+  businessLoanApplication?: BusinessLoanApplication | null;
+};
 type FbPostStatus = Article["fbPostStatus"];
 type AdminAuditLog = AuditLog & { actorName: string };
 type SourceConversionEntry = [string, { leads: number; contacted: number; conversionRate: number }];
@@ -371,6 +380,10 @@ export function AdminApp() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selected, setSelected] = useState<Lead | null>(null);
+  const [creditApplication, setCreditApplication] = useState<CreditApplication | null>(null);
+  const [creditApplicationFiles, setCreditApplicationFiles] = useState<CreditApplicationFile[]>([]);
+  const [houseLoanApplication, setHouseLoanApplication] = useState<HouseLoanApplication | null>(null);
+  const [businessLoanApplication, setBusinessLoanApplication] = useState<BusinessLoanApplication | null>(null);
   const [notes, setNotes] = useState<LeadNote[]>([]);
   const [assignments, setAssignments] = useState<LeadAssignment[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -456,11 +469,15 @@ export function AdminApp() {
     setTab("leads");
     void fetch(`/api/admin/leads/${encodeURIComponent(leadId)}`)
       .then((response) => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`)))
-      .then((json: { lead?: Lead; notes?: LeadNote[]; assignments?: LeadAssignment[] }) => {
+      .then((json: LeadDetailPayload) => {
         if (!json.lead) throw new Error("missing lead");
         setSelected(json.lead);
         setNotes(json.notes || []);
         setAssignments(json.assignments || []);
+        setCreditApplication(json.creditApplication || null);
+        setCreditApplicationFiles(json.creditApplicationFiles || []);
+        setHouseLoanApplication(json.houseLoanApplication || null);
+        setBusinessLoanApplication(json.businessLoanApplication || null);
       })
       .catch(() => {
         setMessage("通知連結中的線索不存在，或目前帳號沒有權限查看。");
@@ -522,10 +539,18 @@ export function AdminApp() {
   }
 
   async function openLead(id: string) {
-    const json = await fetch(`/api/admin/leads/${id}`).then((r) => r.json());
+    const json = await fetch(`/api/admin/leads/${id}`).then((r) => r.json()) as LeadDetailPayload;
+    if (!json.lead) {
+      setMessage("線索不存在，或目前帳號沒有權限查看。");
+      return;
+    }
     setSelected(json.lead);
     setNotes(json.notes || []);
     setAssignments(json.assignments || []);
+    setCreditApplication(json.creditApplication || null);
+    setCreditApplicationFiles(json.creditApplicationFiles || []);
+    setHouseLoanApplication(json.houseLoanApplication || null);
+    setBusinessLoanApplication(json.businessLoanApplication || null);
   }
 
   async function applyLeadFilters(event: React.FormEvent<HTMLFormElement>) {
@@ -1370,12 +1395,54 @@ export function AdminApp() {
                       <span>既有貸款：{selected.existingMortgage || "未填"}</span>
                     </div>
                   ) : null}
+                  {creditApplication ? (
+                    <div className="lead-extra">
+                      <strong>信貸網路申請</strong>
+                      <span>申請編號：{creditApplication.applicationNo}</span>
+                      <span>申請金額：{creditApplication.requestedAmount ? creditApplication.requestedAmount.toLocaleString("zh-TW") : "未填"}</span>
+                      <span>申請年限：{creditApplication.requestedTermYears || "未填"} 年</span>
+                      <span>案件來源：{creditApplication.caseSource || "未填"}</span>
+                      <span>適用方案：{creditApplication.programType || "未填"}</span>
+                      <span>身分證上傳：{creditApplication.idUploadStatus}</span>
+                      <span>財力 LINE 補件：{creditApplication.financialLineStatus}</span>
+                      <span className="full-field">
+                        身分證檔案：{creditApplicationFiles.length ? creditApplicationFiles.map((file) => `${file.fileType} ${file.mimeType} ${(file.sizeBytes / 1024).toFixed(1)}KB`).join("；") : "未記錄"}
+                      </span>
+                    </div>
+                  ) : null}
+                  {houseLoanApplication ? (
+                    <div className="lead-extra">
+                      <strong>房貸申請詳情</strong>
+                      <span>申請編號：{houseLoanApplication.applicationNo}</span>
+                      <span>房貸類型：{houseLoanApplication.houseLoanType || "未填"}</span>
+                      <span>所在地：{[houseLoanApplication.propertyCity, houseLoanApplication.propertyArea].filter(Boolean).join(" ") || "未填"}</span>
+                      <span>房屋用途：{houseLoanApplication.propertyUsage || "未填"}</span>
+                      <span>持有狀態：{houseLoanApplication.ownershipStatus || "未填"}</span>
+                      <span>期望金額：{houseLoanApplication.requestedAmount ? houseLoanApplication.requestedAmount.toLocaleString("zh-TW") : "未填"}</span>
+                      <span>期望年限：{houseLoanApplication.requestedTermYears || "未填"} 年</span>
+                      <span>補件狀態：{houseLoanApplication.documentLineStatus}</span>
+                    </div>
+                  ) : null}
                   {selected.loanType === "business" ? (
                     <div className="lead-extra">
                       <strong>企業資料</strong>
                       <span>公司 / 商號：{selected.companyName || "未填"}</span>
                       <span>登記型態：{selected.businessRegistrationType || "未填"}</span>
                       <span>月營收概估：{selected.monthlyRevenue ? selected.monthlyRevenue.toLocaleString("zh-TW") : "未填"}</span>
+                    </div>
+                  ) : null}
+                  {businessLoanApplication ? (
+                    <div className="lead-extra">
+                      <strong>企業貸申請詳情</strong>
+                      <span>申請編號：{businessLoanApplication.applicationNo}</span>
+                      <span>貸款類型：{businessLoanApplication.businessLoanType || "未填"}</span>
+                      <span>公司 / 商號：{businessLoanApplication.businessName || "未填"}</span>
+                      <span>企業型態：{businessLoanApplication.businessType || "未填"}</span>
+                      <span>所在地：{businessLoanApplication.businessLocation || "未填"}</span>
+                      <span>營業年數：{businessLoanApplication.operatingYears ?? "未填"}</span>
+                      <span>月營收區間：{businessLoanApplication.monthlyRevenueRange || "未填"}</span>
+                      <span>期望金額：{businessLoanApplication.requestedAmount ? businessLoanApplication.requestedAmount.toLocaleString("zh-TW") : "未填"}</span>
+                      <span>補件狀態：{businessLoanApplication.documentLineStatus}</span>
                     </div>
                   ) : null}
                   {selected.duplicateOf ? <p className="privacy-alert">此線索可能與 {selected.duplicateOf} 重複，請先比對手機或 LINE ID。</p> : null}

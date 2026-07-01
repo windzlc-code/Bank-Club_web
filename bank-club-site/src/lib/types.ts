@@ -30,6 +30,9 @@ export type LeadStatus =
 export type UserRole = "super_admin" | "specialist" | "content" | "readonly";
 export type LeadPriority = "normal" | "needs_review" | "high";
 export type LeadNotificationStatus = "not_configured" | "sent" | "failed";
+export type ApplicationStatus = "draft" | "submitted" | "pre_review" | "pending_documents" | "submitted_to_bank" | "approved" | "rejected" | "closed";
+export type LineDocumentStatus = "not_reminded" | "reminded" | "line_received" | "pending_documents" | "confirmed";
+export type CreditIdUploadStatus = "not_uploaded" | "uploaded" | "missing_front" | "missing_back" | "pending_reupload" | "confirmed";
 
 export type Lead = {
   id: string;
@@ -214,6 +217,104 @@ export type SiteEvent = {
   createdAt: string;
 };
 
+export type CreditApplication = {
+  id: string;
+  applicationNo: string;
+  leadId: string;
+  name: string;
+  phone: string;
+  lineId: string;
+  identityType: IdentityType;
+  loanType: "credit";
+  requestedAmount: number | null;
+  requestedTermYears: number | null;
+  fundPurpose: string;
+  caseSource: string;
+  programType: string;
+  idFrontFileId: string;
+  idBackFileId: string;
+  idUploadStatus: CreditIdUploadStatus;
+  financialLineStatus: LineDocumentStatus;
+  consentPersonalDataAt: string;
+  status: ApplicationStatus;
+  assignedTo: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreditApplicationFile = {
+  id: string;
+  applicationId: string;
+  fileType: "id_front" | "id_back";
+  originalName: string;
+  storageKey: string;
+  mimeType: string;
+  sizeBytes: number;
+  checksum: string;
+  uploadStatus: "uploaded" | "validation_failed" | "pending_reupload" | "deleted";
+  reviewedBy: string;
+  reviewedAt: string;
+  deletedAt: string;
+  createdAt: string;
+};
+
+export type HouseLoanApplication = {
+  id: string;
+  applicationNo: string;
+  leadId: string;
+  name: string;
+  phone: string;
+  lineId: string;
+  houseLoanType: string;
+  propertyCity: string;
+  propertyArea: string;
+  propertyType: string;
+  propertyUsage: string;
+  ownershipStatus: string;
+  estimatedValue: number | null;
+  hasExistingMortgage: boolean;
+  currentBank: string;
+  remainingBalance: number | null;
+  requestedAmount: number | null;
+  requestedTermYears: number | null;
+  gracePeriodNeeded: boolean;
+  fundPurpose: string;
+  documentLineStatus: LineDocumentStatus;
+  status: ApplicationStatus;
+  assignedTo: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BusinessLoanApplication = {
+  id: string;
+  applicationNo: string;
+  leadId: string;
+  ownerName: string;
+  phone: string;
+  lineId: string;
+  businessLoanType: string;
+  businessName: string;
+  registrationNo: string;
+  businessType: string;
+  industry: string;
+  operatingYears: number | null;
+  employeeCount: number | null;
+  businessLocation: string;
+  annualRevenueRange: string;
+  monthlyRevenueRange: string;
+  requestedAmount: number | null;
+  requestedTermYears: number | null;
+  fundPurpose: string;
+  hasCollateral: boolean;
+  hasExistingBusinessLoan: boolean;
+  documentLineStatus: LineDocumentStatus;
+  status: ApplicationStatus;
+  assignedTo: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AuditLog = {
   id: string;
   actorId: string;
@@ -263,6 +364,10 @@ export type LaunchReadiness = {
 export type BankClubDB = {
   users: AdminUser[];
   leads: Lead[];
+  creditApplications: CreditApplication[];
+  creditApplicationFiles: CreditApplicationFile[];
+  houseLoanApplications: HouseLoanApplication[];
+  businessLoanApplications: BusinessLoanApplication[];
   leadNotes: LeadNote[];
   leadAssignments: LeadAssignment[];
   articleCategories: ArticleCategory[];

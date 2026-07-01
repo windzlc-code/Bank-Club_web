@@ -84,6 +84,10 @@ function initialDB(): BankClubDB {
       },
     ],
     leads: [],
+    creditApplications: [],
+    creditApplicationFiles: [],
+    houseLoanApplications: [],
+    businessLoanApplications: [],
     leadNotes: [],
     leadAssignments: [],
     articleCategories: seededArticleCategories,
@@ -104,6 +108,22 @@ function mergeSeedData(db: BankClubDB) {
     changed = true;
   }
   const deletedArticleIds = new Set(db.deletedArticleIds);
+  if (!Array.isArray(db.creditApplications)) {
+    db.creditApplications = [];
+    changed = true;
+  }
+  if (!Array.isArray(db.creditApplicationFiles)) {
+    db.creditApplicationFiles = [];
+    changed = true;
+  }
+  if (!Array.isArray(db.houseLoanApplications)) {
+    db.houseLoanApplications = [];
+    changed = true;
+  }
+  if (!Array.isArray(db.businessLoanApplications)) {
+    db.businessLoanApplications = [];
+    changed = true;
+  }
   if (!Array.isArray(db.leadAssignments)) {
     db.leadAssignments = [];
     changed = true;

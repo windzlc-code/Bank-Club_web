@@ -29,7 +29,7 @@ export default async function ConsultationPage({ searchParams }: { searchParams:
       <main className="subpage">
         <section className="page-hero compact">
           <h1>免費諮詢預約</h1>
-          <p>表單只收初步諮詢必要資料，不收身分證照片、財力證明或銀行存摺影本。</p>
+          <p>依貸款類型展開真實申請欄位；信用貸款只在專用模組收身分證正反面，財力、房產與企業補件請透過 LINE 與專員確認。</p>
         </section>
         <section className="form-section">
           <ConsultationForm defaultLoanType={loanType} defaultIdentityType={defaultIdentityForLoanType(loanType)} />

@@ -935,7 +935,8 @@ async function checkSuccessPageContact(origin: string, db: Awaited<ReturnType<ty
       text.includes(db.settings.email) ? "" : "缺少 Email",
       text.includes("補件提醒") ? "" : "缺少補件提醒",
       text.includes("透過 LINE 與專員確認補件方式") ? "" : "缺少 LINE 補件確認提醒",
-      text.includes("不收身分證照片") && text.includes("財力證明") && text.includes("銀行存摺影本") ? "" : "缺少不收敏感文件提示",
+      text.includes("信用貸款只在專用模組收身分證正反面") || text.includes("身分證上傳狀態") ? "" : "缺少信貸身分證專用模組提示",
+      text.includes("透過 LINE 與專員確認") && text.includes("財力證明") ? "" : "缺少財力與敏感文件 LINE 補件提示",
       qrAltOk ? "" : "缺少 LINE QR Code 圖片 alt",
       lineHref ? "" : "LINE CTA 缺少 success 來源或 lead_id",
       fbHref ? "" : "FB CTA 缺少 success 來源或 lead_id",
@@ -947,7 +948,7 @@ async function checkSuccessPageContact(origin: string, db: Awaited<ReturnType<ty
       issues.length === 0,
       issues.length
         ? issues.join("；")
-        : "成功頁顯示線索編號、專員姓名、行動電話、Email、LINE QR Code、LINE 補件提醒與不收敏感文件提示，且 LINE/FB CTA 均保留 success 來源與 lead_id",
+        : "成功頁顯示線索編號、專員姓名、行動電話、Email、LINE QR Code、信貸專用身分證上傳邊界與 LINE 補件提醒，且 LINE/FB CTA 均保留 success 來源與 lead_id",
     );
   } catch (error) {
     return {
@@ -1521,13 +1522,13 @@ async function checkFormDataMinimization(origin: string): Promise<LaunchCheck> {
       ].join(" ");
       return sensitiveFormControlPattern.test(descriptor);
     });
-    const requiredCopy = ["不收身分證照片", "財力證明", "銀行存摺影本"];
+    const requiredCopy = ["信用貸款只在專用模組收身分證正反面", "財力", "LINE"];
     const missingCopy = requiredCopy.filter((text) => !html.includes(text));
     const issues = [
       ...missingFields.map((field) => `缺少必要欄位 ${field}`),
       ...(fileInputs.length ? [`存在 ${fileInputs.length} 個檔案上傳欄位`] : []),
       ...sensitiveControls.map((tag) => `欄位疑似收集敏感資料：${extractAttribute(tag, "name") || extractAttribute(tag, "id") || tag.slice(0, 60)}`),
-      ...missingCopy.map((text) => `缺少不收敏感文件提示「${text}」`),
+      ...missingCopy.map((text) => `缺少信貸專用上傳 / LINE 補件提示「${text}」`),
     ];
 
     return check(
@@ -1536,7 +1537,7 @@ async function checkFormDataMinimization(origin: string): Promise<LaunchCheck> {
       issues.length === 0,
       issues.length
         ? issues.slice(0, 10).join("；")
-        : "表單僅保留初步諮詢必要欄位，無檔案上傳或敏感文件欄位，並明確提示不收身分證照片、財力證明與銀行存摺影本",
+        : "統一諮詢頁預設不展開檔案上傳；頁面明確提示信用貸款只在專用模組收身分證正反面，財力、房產與企業補件透過 LINE 與專員確認",
     );
   } catch (error) {
     return {

@@ -14,7 +14,7 @@ const qa: TrackedFaqItem[] = [
   { id: "application-back-button", question: "網路申貸點上一頁當機怎麼辦？", answer: "先不要重複送件或刷新多次，截圖保留狀態並聯繫專員協助確認。", href: "/application-flow" },
   { id: "credit-income-documents", question: "信貸財力證明需要哪些資料？", answer: "上班族常見薪轉、扣繳憑單、勞保資料；自營業主常見營業資料、流水與報稅資料。", href: "/documents" },
   { id: "employee-self-employed-docs", question: "上班族和自營業主文件差異是什麼？", answer: "上班族多以薪轉、扣繳憑單、勞保資料佐證收入；自營業主則常需要營業資料、銀行流水、報稅資料或其他可佐證收入的紀錄。", href: "/blog/employee-self-employed-income-documents" },
-  { id: "high-risk-purpose", question: "資金用途填投資理財會被駁件嗎？", answer: "貸款資金不得用於投資理財、股票操作或不符合銀行規範的用途，請依真實合法用途填寫。", href: "/credit-loan" },
+  { id: "high-risk-purpose", question: "資金用途填投資理財等用途需要注意什麼？", answer: "請依本人真實需求、銀行官方頁面、最新規則與個案審核結果填寫；網站不會指導包裝用途或填寫不實用途，不確定時先諮詢專員。", href: "/credit-loan" },
   { id: "official-form-fields", question: "網路申請表單中的申請金額、申請年限、案件來源和適用方案怎麼填？", answer: "這些是銀行官方申請欄位，不是網站承諾條件。應依真實需求、還款能力、資金用途及專員確認結果填寫，並以銀行頁面規則為準。", href: "/blog/credit-application-fields" },
   { id: "age-plus-term", question: "年齡加貸款年限超過 65 歲怎麼辦？", answer: "常見原則是年齡加貸款年限不超過 65 歲，但實際仍依銀行、方案、收入、信用與負債狀況審核。可先讓專員協助判斷可行年限。", href: "/blog/credit-loan-age-limit" },
   { id: "self-employed-no-payroll", question: "自營業主沒有薪資單怎麼辦？", answer: "沒有固定薪資單時，可先整理營業登記、銀行流水、報稅資料、合約或其他可佐證收入的資料，再由專員確認是否足夠。", href: "/documents" },

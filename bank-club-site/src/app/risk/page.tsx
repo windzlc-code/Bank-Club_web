@@ -4,7 +4,7 @@ import { createPageMetadata } from "@/lib/seo";
 
 export const metadata = createPageMetadata({
   title: "金融風險聲明｜銀行俱樂部",
-  description: "聲明銀行俱樂部非銀行或金融機構，不保證核貸、額度、利率或撥款結果，貸款資金不得用於違規用途。",
+  description: "聲明銀行俱樂部非銀行或金融機構，不保證核貸、額度、利率或撥款結果，資金用途需依真實需求與銀行規則填寫。",
   path: "/risk",
 });
 
@@ -25,7 +25,7 @@ export default function RiskPage() {
         <section>
           <h2>禁止承諾與用途風險</h2>
           <p>本平台不保證核貸、不保證額度、不保證利率、不承諾最低費用，也不協助包裝財力、規避銀行審核或填寫不實用途。</p>
-          <p>貸款資金不得用於投資理財、股票操作或其他違反銀行規定用途。申請人必須提供真實資料，偽造文件或虛假陳述可能觸犯法律。</p>
+          <p>資金用途必須依本人真實需求、銀行官方頁面、銀行最新規則與個案審核結果填寫；申請人不得包裝用途、偽造文件或做虛假陳述，否則可能被銀行婉拒並產生法律風險。</p>
         </section>
         <BreadcrumbJsonLd current="金融風險聲明" path="/risk" />
       </main>

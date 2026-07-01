@@ -891,6 +891,22 @@ label {
   padding: 0 8px;
 }
 
+.field-note,
+.field-help {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.field-note {
+  margin: 0 0 16px;
+}
+
+.field-help {
+  margin-top: -2px;
+}
+
 input,
 select,
 textarea {
