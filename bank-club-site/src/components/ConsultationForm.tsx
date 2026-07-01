@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { identityLabels, loanLabels } from "@/lib/site-data";
 import { getTrackingSessionId } from "@/lib/tracking-session";
 import type { IdentityType, LoanType } from "@/lib/types";
@@ -10,6 +11,18 @@ type Props = {
   defaultLoanType?: string;
   defaultIdentityType?: string;
 };
+
+type CreditUploadSide = "front" | "back";
+
+type CreditUploadState = {
+  fileName: string;
+  fileSize: number;
+  previewUrl: string;
+  error: string;
+};
+
+const allowedCreditFileTypes = new Set(["image/jpeg", "image/png", "image/heic", "image/heif"]);
+const creditFileMaxBytes = 8 * 1024 * 1024;
 
 function sourceFromReferrer(referrer: string) {
   if (!referrer) return "direct";
@@ -34,20 +47,126 @@ function keywordFromReferrer(referrer: string) {
   }
 }
 
+function emptyUploadState(): CreditUploadState {
+  return { fileName: "", fileSize: 0, previewUrl: "", error: "" };
+}
+
+function formatFileSize(bytes: number) {
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityType = "" }: Props) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [formStartedAt] = useState(() => Date.now().toString());
   const [loanType, setLoanType] = useState<LoanType>(defaultLoanType as LoanType);
   const [purpose, setPurpose] = useState("unsure");
-  const [idFrontName, setIdFrontName] = useState("");
-  const [idBackName, setIdBackName] = useState("");
+  const [idFrontUpload, setIdFrontUpload] = useState<CreditUploadState>(() => emptyUploadState());
+  const [idBackUpload, setIdBackUpload] = useState<CreditUploadState>(() => emptyUploadState());
+  const idFrontInputRef = useRef<HTMLInputElement>(null);
+  const idBackInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (idFrontUpload.previewUrl) URL.revokeObjectURL(idFrontUpload.previewUrl);
+      if (idBackUpload.previewUrl) URL.revokeObjectURL(idBackUpload.previewUrl);
+    };
+  }, [idFrontUpload.previewUrl, idBackUpload.previewUrl]);
+
+  function updateUpload(side: CreditUploadSide, nextState: CreditUploadState) {
+    const setter = side === "front" ? setIdFrontUpload : setIdBackUpload;
+    setter((previous) => {
+      if (previous.previewUrl) URL.revokeObjectURL(previous.previewUrl);
+      return nextState;
+    });
+  }
+
+  function handleCreditFileChange(side: CreditUploadSide, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) {
+      updateUpload(side, emptyUploadState());
+      return;
+    }
+    if (!allowedCreditFileTypes.has(file.type)) {
+      event.currentTarget.value = "";
+      updateUpload(side, { ...emptyUploadState(), error: "格式不支援，請改選 JPG、PNG 或 HEIC 圖片。" });
+      return;
+    }
+    if (file.size > creditFileMaxBytes) {
+      event.currentTarget.value = "";
+      updateUpload(side, { ...emptyUploadState(), error: "檔案超過 8MB，請重新拍攝或壓縮後再上傳。" });
+      return;
+    }
+    const previewUrl = ["image/jpeg", "image/png"].includes(file.type) ? URL.createObjectURL(file) : "";
+    updateUpload(side, {
+      fileName: file.name || "已選擇檔案",
+      fileSize: file.size,
+      previewUrl,
+      error: "",
+    });
+  }
+
+  function clearCreditFile(side: CreditUploadSide) {
+    const input = side === "front" ? idFrontInputRef.current : idBackInputRef.current;
+    if (input) input.value = "";
+    updateUpload(side, emptyUploadState());
+    setUploadProgress("");
+  }
+
+  function renderCreditUpload(side: CreditUploadSide, title: string, help: string) {
+    const state = side === "front" ? idFrontUpload : idBackUpload;
+    const inputId = side === "front" ? "id-front-upload" : "id-back-upload";
+    const inputRef = side === "front" ? idFrontInputRef : idBackInputRef;
+    const hasSelectedFile = Boolean(state.fileName || state.previewUrl);
+    const displayName = state.fileName || title;
+    const displaySize = state.fileSize;
+
+    return (
+      <div className={`upload-field${state.error ? " has-error" : ""}`}>
+        <label htmlFor={inputId}>{title}</label>
+        <input
+          id={inputId}
+          ref={inputRef}
+          name={side === "front" ? "idFront" : "idBack"}
+          type="file"
+          required
+          accept="image/jpeg,image/png,image/heic,image/heif"
+          onChange={(event) => handleCreditFileChange(side, event)}
+        />
+        <div className="upload-preview-card">
+          {state.previewUrl ? (
+            <Image src={state.previewUrl} alt={`${title}預覽`} width={86} height={65} unoptimized />
+          ) : (
+            <div className="upload-preview-placeholder">{hasSelectedFile ? "已選擇 HEIC 檔案" : "尚未選擇檔案"}</div>
+          )}
+          <div>
+            <strong>{displayName}</strong>
+            <span>{hasSelectedFile ? `${formatFileSize(displaySize)}，送出前可刪除重選。` : help}</span>
+            {state.error ? <span className="upload-error">{state.error}</span> : null}
+            {hasSelectedFile ? (
+              <button type="button" className="ghost-button upload-clear-button" onClick={() => clearCreditFile(side)}>
+                刪除重傳
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loanType === "credit" && (!idFrontInputRef.current?.files?.[0] || !idBackInputRef.current?.files?.[0])) {
+      setMessage("信貸網路申請需上傳身分證正反面，確認清楚後再送出。");
+      return;
+    }
     setSubmitting(true);
     setMessage("");
+    setUploadProgress(loanType === "credit" ? "身分證檔案上傳中，請勿關閉頁面；若失敗可保留目前選擇後再次送出。" : "");
     const data = new FormData(event.currentTarget);
     const search = new URLSearchParams(window.location.search);
     const referrer = document.referrer;
@@ -72,6 +191,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
     const response = await fetch("/api/leads", { method: "POST", body: data });
     const result = (await response.json().catch(() => ({}))) as { leadId?: string; message?: string };
     setSubmitting(false);
+    setUploadProgress("");
     if (!response.ok || !result.leadId) {
       setMessage(result.message || "送出失敗，請稍後再試。");
       return;
@@ -178,28 +298,8 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
                 <option value="unsure">不確定，先諮詢</option>
               </select>
             </label>
-            <label>
-              身分證正面
-              <input
-                name="idFront"
-                type="file"
-                required
-                accept="image/jpeg,image/png,image/heic,image/heif"
-                onChange={(event) => setIdFrontName(event.currentTarget.files?.[0]?.name || "")}
-              />
-              <span className="field-help">{idFrontName || "支援 JPG、PNG、HEIC，請確認四角完整且清楚對焦。"}</span>
-            </label>
-            <label>
-              身分證反面
-              <input
-                name="idBack"
-                type="file"
-                required
-                accept="image/jpeg,image/png,image/heic,image/heif"
-                onChange={(event) => setIdBackName(event.currentTarget.files?.[0]?.name || "")}
-              />
-              <span className="field-help">{idBackName || "正反面缺一不可；若上傳失敗可刪除重選後再送出。"}</span>
-            </label>
+            {renderCreditUpload("front", "身分證正面", "支援 JPG、PNG、HEIC，請確認四角完整且清楚對焦。")}
+            {renderCreditUpload("back", "身分證反面", "正反面缺一不可；若上傳失敗可保留檔案再次送出，或刪除重選。")}
           </div>
           <div className="warning-block form-warning">
             <h3>信貸申請操作提醒</h3>
@@ -395,6 +495,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
         </label>
       </div>
       {message ? <p className="form-error">{message}</p> : null}
+      {uploadProgress ? <p className="upload-progress" role="status">{uploadProgress}</p> : null}
       <button className="primary-btn form-submit" disabled={submitting}>
         {submitting ? "送出中..." : "送出免費諮詢"}
       </button>

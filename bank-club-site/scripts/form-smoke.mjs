@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import { readDbJson, readDbSnapshot, writeDbSnapshot } from "./db-file-lock.mjs";
@@ -116,6 +116,40 @@ function buildApiLeadForm({ name, phone, lineId, sessionId, website = "", note =
   return form;
 }
 
+function tinyPngFile(name) {
+  const pngBytes = Uint8Array.from([
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+    0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137,
+    0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 15, 4, 0, 9,
+    251, 3, 253, 167, 80, 188, 204, 0, 0, 0, 0, 73, 69, 78, 68,
+    174, 66, 96, 130,
+  ]);
+  return new File([pngBytes], name, { type: "image/png" });
+}
+
+function buildCreditApiLeadForm({ name, phone, lineId, sessionId, includeFiles = true }) {
+  const form = buildApiLeadForm({
+    name,
+    phone,
+    lineId,
+    sessionId,
+    purpose: "living",
+    sourcePage: "/credit-loan-form-smoke",
+  });
+  form.set("identityType", "employee");
+  form.set("loanType", "credit");
+  form.set("desiredAmount", "7000000");
+  form.set("requestedAmount", "7000000");
+  form.set("requestedTermYears", "10");
+  form.set("caseSource", "company_preferential");
+  form.set("programType", "binding");
+  if (includeFiles) {
+    form.set("idFront", tinyPngFile("id-front-smoke.png"));
+    form.set("idBack", tinyPngFile("id-back-smoke.png"));
+  }
+  return form;
+}
+
 async function run() {
   const backup = keepData ? null : await readDbSnapshot(dbPath);
   const originalDB = JSON.parse(backup || await readDbSnapshot(dbPath));
@@ -128,6 +162,7 @@ async function run() {
     houseForm: path.join(screenshotDir, "house-form.png"),
     houseSuccess: path.join(screenshotDir, "house-success.png"),
   };
+  let creditUploadDirToRemove = "";
   let browser = null;
 
   try {
@@ -197,6 +232,67 @@ async function run() {
     ) {
       fail("high-risk API purpose event missing normalized/raw purpose metadata");
     }
+
+    const missingCreditFileResponse = await fetch(`${baseUrl}/api/leads`, {
+      method: "POST",
+      headers: {
+        ...sameOriginHeaders("", "127.0.0.130"),
+        "user-agent": "FormSmokeCreditMissingFiles",
+      },
+      body: buildCreditApiLeadForm({
+        name: `信貸缺件煙測 ${Date.now()}`,
+        phone: smokePhone(221),
+        lineId: `creditMissingFiles${String(Date.now()).slice(-6)}`,
+        sessionId: `${sessionId}-credit-missing-files`,
+        includeFiles: false,
+      }),
+    });
+    const missingCreditFileJson = await parseJson(missingCreditFileResponse);
+    if (missingCreditFileResponse.status !== 400 || !missingCreditFileJson.message?.includes("身分證正面")) {
+      fail(`credit application without ID files should be rejected, got HTTP ${missingCreditFileResponse.status}: ${missingCreditFileJson.message || ""}`);
+    }
+
+    const creditApiSessionId = `${sessionId}-credit-api`;
+    const creditApiResponse = await fetch(`${baseUrl}/api/leads`, {
+      method: "POST",
+      headers: {
+        ...sameOriginHeaders("", "127.0.0.131"),
+        "user-agent": "FormSmokeCreditApplication",
+      },
+      body: buildCreditApiLeadForm({
+        name: `信貸申請煙測 ${Date.now()}`,
+        phone: smokePhone(321),
+        lineId: `creditApplicationSmoke${String(Date.now()).slice(-6)}`,
+        sessionId: creditApiSessionId,
+      }),
+    });
+    const creditApiJson = await parseJson(creditApiResponse);
+    if (!creditApiResponse.ok || !creditApiJson.leadId) {
+      fail(`credit application API lead failed HTTP ${creditApiResponse.status}: ${creditApiJson.message || "missing leadId"}`);
+    }
+    const creditDetail = await fetchJson(`/api/admin/leads/${creditApiJson.leadId}`, {
+      headers: sameOriginHeaders(cookie, "127.0.0.126"),
+    });
+    if (!creditDetail.response.ok) fail(`credit application admin detail failed HTTP ${creditDetail.response.status}`);
+    const creditApplication = creditDetail.json.creditApplication;
+    const creditFiles = creditDetail.json.creditApplicationFiles || [];
+    if (
+      !creditApplication ||
+      !creditApplication.applicationNo?.startsWith("CR") ||
+      creditApplication.requestedAmount !== 7000000 ||
+      creditApplication.requestedTermYears !== 10 ||
+      creditApplication.caseSource !== "company_preferential" ||
+      creditApplication.programType !== "binding" ||
+      creditApplication.idUploadStatus !== "uploaded" ||
+      creditApplication.financialLineStatus !== "reminded" ||
+      creditFiles.length !== 2
+    ) {
+      fail("credit application should persist amount, term, program, upload status, LINE supplement status, and two ID files");
+    }
+    if (!creditFiles.every((file) => file.mimeType === "image/png" && file.checksum && file.uploadStatus === "uploaded")) {
+      fail("credit ID file records should persist PNG mime type, checksum, and uploaded status");
+    }
+    creditUploadDirToRemove = path.join(process.cwd(), ".data", "credit-application-files", creditApplication.id);
 
     await mkdir(screenshotDir, { recursive: true });
     browser = await chromium.launch();
@@ -405,7 +501,7 @@ async function run() {
     }
 
     await page.goto(`${baseUrl}/house-loan?${houseQuery.toString()}`, { waitUntil: "networkidle" });
-    if (!(await page.getByRole("heading", { name: "房屋貸款" }).isVisible())) {
+    if (!(await page.getByRole("heading", { name: "房屋貸款", exact: true }).isVisible())) {
       fail("house-loan page identity check failed");
     }
     const houseForm = page.locator("section.form-section", { hasText: "房屋貸款申請表" }).locator("form.lead-form");
@@ -681,10 +777,19 @@ async function run() {
         rapidSecondStatus: rapidSecondResponse.status,
         attemptFloodLastStatus: attemptFloodStatuses.at(-1),
       },
+      creditApplication: {
+        leadId: creditApiJson.leadId,
+        applicationNo: creditApplication.applicationNo,
+        idFileCount: creditFiles.length,
+        missingFileStatus: missingCreditFileResponse.status,
+      },
       screenshots: screenshotPaths,
     }, null, 2));
   } finally {
     if (browser) await browser.close();
+    if (creditUploadDirToRemove) {
+      await rm(creditUploadDirToRemove, { recursive: true, force: true }).catch(() => undefined);
+    }
     if (backup !== null) {
       await writeDbSnapshot(backup, { dbPath, label: "form-smoke" });
     }
