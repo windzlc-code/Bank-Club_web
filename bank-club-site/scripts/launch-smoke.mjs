@@ -6,13 +6,26 @@ const dbPath = path.join(process.cwd(), ".data", "bank-club-db.json");
 const keepData = process.env.LAUNCH_SMOKE_KEEP_DATA === "1";
 const defaultPassword = "admin123";
 const legacyDefaultPassword = "BankClub2026!";
-const defaultExpectedFailures = ["env:auth-secret", "env:admin-password"];
-const expectedFailureIds = new Set(
-  (process.env.LAUNCH_SMOKE_EXPECTED_FAILS || defaultExpectedFailures.join(","))
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean),
-);
+const isLocalBaseUrl = (() => {
+  try {
+    const hostname = new URL(baseUrl).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return true;
+  }
+})();
+const defaultExpectedFailures = isLocalBaseUrl ? ["env:auth-secret", "env:admin-password"] : [];
+
+function parseExpectedFailures() {
+  if (!Object.prototype.hasOwnProperty.call(process.env, "LAUNCH_SMOKE_EXPECTED_FAILS")) {
+    return defaultExpectedFailures;
+  }
+  const rawValue = String(process.env.LAUNCH_SMOKE_EXPECTED_FAILS || "").trim();
+  if (!rawValue || rawValue.toLowerCase() === "none") return [];
+  return rawValue.split(",").map((value) => value.trim()).filter(Boolean);
+}
+
+const expectedFailureIds = new Set(parseExpectedFailures());
 
 function fail(message, details = []) {
   const error = new Error([message, ...details].join("\n"));
@@ -217,7 +230,7 @@ async function run() {
     const unexpectedFailures = failedChecks.filter((check) => !expectedFailureIds.has(check.id));
     const missingExpectedFailures = [...expectedFailureIds].filter((id) => !failedChecks.some((check) => check.id === id));
     if (unexpectedFailures.length || missingExpectedFailures.length) {
-      fail("launch checklist failures did not match expected local environment failures", [
+      fail("launch checklist failures did not match expected failures", [
         unexpectedFailures.length ? `Unexpected:\n${unexpectedFailures.map(formatCheck).join("\n")}` : "Unexpected: none",
         missingExpectedFailures.length ? `Expected but not failing: ${missingExpectedFailures.join(", ")}` : "Expected failures all present",
       ]);
