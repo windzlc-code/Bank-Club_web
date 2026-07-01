@@ -115,6 +115,17 @@ function futureDatetimeLocal(hoursFromNow = 48) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function tinyPngFile(name) {
+  const pngBytes = Uint8Array.from([
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+    0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137,
+    0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 15, 4, 0, 9,
+    251, 3, 253, 167, 80, 188, 204, 0, 0, 0, 0, 73, 69, 78, 68,
+    174, 66, 96, 130,
+  ]);
+  return new File([pngBytes], name, { type: "image/png" });
+}
+
 async function submitSeedLead(runId) {
   const form = new FormData();
   const fields = {
@@ -139,6 +150,12 @@ async function submitSeedLead(runId) {
     consent: "on",
   };
   Object.entries(fields).forEach(([key, value]) => form.set(key, value));
+  form.set("requestedAmount", "7000000");
+  form.set("requestedTermYears", "10");
+  form.set("caseSource", "company_preferential");
+  form.set("programType", "binding");
+  form.set("idFront", tinyPngFile(`admin-ui-id-front-${runId}.png`));
+  form.set("idBack", tinyPngFile(`admin-ui-id-back-${runId}.png`));
   const response = await fetch(`${baseUrl}/api/leads`, {
     method: "POST",
     headers: {
@@ -181,6 +198,12 @@ async function loginThroughUi(page) {
     });
     const loginResponse = await loginResponsePromise;
     const loginJson = await loginResponse.json().catch(() => ({}));
+    if (loginResponse.ok()) {
+      await Promise.all([
+        page.waitForResponse((response) => response.url().includes("/api/admin/summary") && response.request().method() === "GET", { timeout: 12000 }).catch(() => null),
+        page.waitForResponse((response) => response.url().includes("/api/admin/leads") && response.request().method() === "GET", { timeout: 12000 }).catch(() => null),
+      ]);
+    }
     await page.waitForLoadState("networkidle").catch(() => undefined);
     if (await page.locator(".admin-shell").isVisible({ timeout: 12000 }).catch(() => false)) {
       return;

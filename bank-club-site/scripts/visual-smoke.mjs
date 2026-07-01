@@ -100,7 +100,7 @@ const subpageSmokeCases = [
   {
     name: "application-flow",
     path: "/application-flow",
-    navLabel: "申辦流程",
+    navLabel: "申請流程教學",
     requiredTexts: ["申辦流程教學", "線上或表單填寫需求", "填寫需求", "預約初評", "跟進案件", "申請前檢查清單"],
     selectors: [".page-hero", ".timeline", ".timeline .step-cta", ".flow-guide-grid", ".flow-guide-card"],
     stepCtaCount: 6,
@@ -114,7 +114,7 @@ const subpageSmokeCases = [
   {
     name: "qa",
     path: "/qa",
-    navLabel: "常見QA",
+    navLabel: "常見 QA",
     requiredTexts: ["常見 QA", "信貸財力證明需要哪些資料？", "問題還不確定？"],
     selectors: [".page-hero", ".faq-list", ".warning-block"],
   },
@@ -272,7 +272,7 @@ async function assertHomeReferenceComposition(page, name) {
       const rect = element.getBoundingClientRect();
       return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width, height: rect.height };
     });
-    const navLinks = [...document.querySelectorAll(".main-nav a")].map((element) => {
+    const navLinks = [...document.querySelectorAll(".main-nav > a, .main-nav > details > summary")].map((element) => {
       const rect = element.getBoundingClientRect();
       return { text: element.textContent?.trim() || "", top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width, height: rect.height };
     });
@@ -283,7 +283,7 @@ async function assertHomeReferenceComposition(page, name) {
       brandImage: rectFor(".brand img"),
       mainNav: rectFor(".main-nav"),
       headerActions: rectFor(".header-actions"),
-      searchButton: rectFor(".header-actions .icon-btn"),
+      languageButton: rectFor(".header-actions .language-toggle"),
       lineButton: rectFor(".header-actions .line-btn"),
       hero: rectFor(".hero"),
       heroContent: rectFor(".hero-content"),
@@ -303,7 +303,7 @@ async function assertHomeReferenceComposition(page, name) {
   if (missing.length) fail(`${name}: missing homepage composition metrics: ${missing.join(", ")}`);
   if (metrics.servicePanels.length !== 3) fail(`${name}: reference composition expected 3 service panels, found ${metrics.servicePanels.length}`);
 
-  const { viewportWidth, header, brand, brandImage, mainNav, headerActions, searchButton, lineButton, hero, heroContent, sliderDots, serviceRail, contactStrip, advisor, qrMini, navLinks, servicePanels } = metrics;
+  const { viewportWidth, header, brand, brandImage, mainNav, headerActions, languageButton, lineButton, hero, heroContent, sliderDots, serviceRail, contactStrip, advisor, qrMini, navLinks, servicePanels } = metrics;
   const isDesktop = viewportWidth >= 900;
   if (isDesktop) {
     if (header.height < 70 || header.height > 92) {
@@ -315,7 +315,7 @@ async function assertHomeReferenceComposition(page, name) {
     if (brandImage.width < 56 || brandImage.width > 86 || brandImage.height < 38 || brandImage.height > 58) {
       fail(`${name}: brand logo should keep the reference header scale`, [`size=${Math.round(brandImage.width)}x${Math.round(brandImage.height)}px`]);
     }
-    if (navLinks.length !== 6) fail(`${name}: reference header expected 6 nav links, found ${navLinks.length}`);
+    if (navLinks.length !== 7) fail(`${name}: plan section 4.1 header expected 7 nav groups plus the gold LINE action, found ${navLinks.length}`);
     const navTopSpread = Math.max(...navLinks.map((link) => link.top)) - Math.min(...navLinks.map((link) => link.top));
     if (navTopSpread > 3) fail(`${name}: desktop nav links should align in one row`, [`spread=${Math.round(navTopSpread)}px`]);
     if (mainNav.left <= brand.right || headerActions.left <= mainNav.right) {
@@ -326,11 +326,15 @@ async function assertHomeReferenceComposition(page, name) {
         `actionsLeft=${Math.round(headerActions.left)}`,
       ]);
     }
-    if (lineButton.width < 126 || lineButton.width > 180 || Math.abs(lineButton.top - searchButton.top) > 8) {
-      fail(`${name}: LINE consultation button should keep the reference header CTA size and alignment`, [
+    if (languageButton.width < 44 || languageButton.width > 76 || Math.abs(lineButton.top - languageButton.top) > 8) {
+      fail(`${name}: language globe and LINE consultation button should stay aligned in the header actions`, [
+        `languageWidth=${Math.round(languageButton.width)}px`,
         `lineWidth=${Math.round(lineButton.width)}px`,
-        `topDelta=${Math.round(Math.abs(lineButton.top - searchButton.top))}px`,
+        `topDelta=${Math.round(Math.abs(lineButton.top - languageButton.top))}px`,
       ]);
+    }
+    if (lineButton.width < 126 || lineButton.width > 180) {
+      fail(`${name}: LINE consultation button should keep the reference header CTA size`, [`lineWidth=${Math.round(lineButton.width)}px`]);
     }
     if (Math.abs((header.bottom - hero.top)) > 1) {
       fail(`${name}: hero should start directly below the sticky header`, [
@@ -364,9 +368,9 @@ async function assertHomeReferenceComposition(page, name) {
     const panelTopSpread = Math.max(...servicePanels.map((panel) => panel.top)) - Math.min(...servicePanels.map((panel) => panel.top));
     if (panelTopSpread > 4) fail(`${name}: service panels should align in a single desktop row`, [`spread=${Math.round(panelTopSpread)}px`]);
   } else {
-    const expectedMobileNavLabels = ["首頁", "信用貸款", "房屋貸款", "企業貸款", "申辦流程", "常見QA"];
+    const expectedMobileNavLabels = ["首頁", "貸款服務", "申請流程教學", "銀行資格與文件總整理", "常見 QA", "免費諮詢預約", "FB 銀行俱樂部社團"];
     if (navLinks.map((link) => link.text).join("|") !== expectedMobileNavLabels.join("|")) {
-      fail(`${name}: mobile header nav should keep the same reference labels`, [`got=${navLinks.map((link) => link.text).join(", ")}`]);
+      fail(`${name}: mobile header nav should keep the plan section 4.1 labels`, [`got=${navLinks.map((link) => link.text).join(", ")}`]);
     }
     if (brand.width < viewportWidth * 0.75 || brandImage.width < 64) {
       fail(`${name}: mobile brand row should remain prominent like the reference image`, [
@@ -374,9 +378,9 @@ async function assertHomeReferenceComposition(page, name) {
         `logoWidth=${Math.round(brandImage.width)}px`,
       ]);
     }
-    if (lineButton.left <= searchButton.right || lineButton.top < searchButton.top - 4) {
-      fail(`${name}: mobile search icon should sit before the LINE CTA in the header actions row`, [
-        `searchRight=${Math.round(searchButton.right)}px`,
+    if (lineButton.left <= languageButton.right || lineButton.top < languageButton.top - 4) {
+      fail(`${name}: mobile language globe should sit before the LINE CTA in the header actions row`, [
+        `languageRight=${Math.round(languageButton.right)}px`,
         `lineLeft=${Math.round(lineButton.left)}px`,
       ]);
     }
@@ -429,14 +433,14 @@ async function assertHomepage(page, name) {
   const serviceCount = await page.locator(".service-panel").count();
   if (serviceCount !== 3) fail(`${name}: expected 3 service panels, found ${serviceCount}`);
 
-  const homeFooterExtraSections = await page.locator(".site-footer .footer-cta, .site-footer .footer-popular, .site-footer .footer-links").count();
-  if (homeFooterExtraSections !== 0) {
-    fail(`${name}: homepage footer should match the reference image compact footer, found ${homeFooterExtraSections} extra footer sections`);
+  const homeFooterPlanSections = await page.locator(".site-footer .footer-cta, .site-footer .footer-popular, .site-footer .footer-links").count();
+  if (homeFooterPlanSections !== 3) {
+    fail(`${name}: homepage footer should include the plan-required CTA, popular articles, and full link sections, found ${homeFooterPlanSections}`);
   }
 
   const homeFooterRiskLinks = await page.locator('.site-footer a[href="/risk"]').count();
-  if (homeFooterRiskLinks !== 1) {
-    fail(`${name}: homepage footer should keep exactly one risk disclosure link, found ${homeFooterRiskLinks}`);
+  if (homeFooterRiskLinks < 1) {
+    fail(`${name}: homepage footer should keep a risk disclosure link`);
   }
 
   const highlightedText = page.locator(".hero-lead .gold-text");
@@ -445,10 +449,13 @@ async function assertHomepage(page, name) {
     fail(`${name}: hero should highlight 免費評估 in gold like the reference image`);
   }
 
-  const desktopNavLabels = await page.locator(".main-nav a").evaluateAll((items) => items.map((item) => item.textContent?.trim() || ""));
-  const expectedDesktopNavLabels = ["首頁", "信用貸款", "房屋貸款", "企業貸款", "申辦流程", "常見QA"];
+  const desktopNavLabels = await page.locator(".main-nav > a, .main-nav > details > summary").evaluateAll((items) => items.map((item) => item.textContent?.trim() || ""));
+  const expectedDesktopNavLabels = ["首頁", "貸款服務", "申請流程教學", "銀行資格與文件總整理", "常見 QA", "免費諮詢預約", "FB 銀行俱樂部社團"];
   if (name === "desktop" && desktopNavLabels.join("|") !== expectedDesktopNavLabels.join("|")) {
-    fail(`${name}: header nav should match reference labels, got ${desktopNavLabels.join(", ")}`);
+    fail(`${name}: header nav should match plan section 4.1 labels, got ${desktopNavLabels.join(", ")}`);
+  }
+  if (name === "desktop" && (await page.locator(".header-actions .line-btn[aria-label='聯絡我們 / LINE 諮詢']").count()) !== 1) {
+    fail(`${name}: header should expose 聯絡我們 / LINE 諮詢 as the gold action button`);
   }
 
   const issues = await collectLayoutIssues(page);

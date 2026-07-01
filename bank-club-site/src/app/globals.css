@@ -931,6 +931,7 @@ svg {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(3, 1fr);
+  min-width: 0;
 }
 
 label {
@@ -939,12 +940,14 @@ label {
   font-size: 14px;
   font-weight: 800;
   gap: 8px;
+  min-width: 0;
 }
 
 .context-fields {
   border: 1px solid #e6e3da;
   border-radius: 8px;
   margin: 18px 0 0;
+  min-width: 0;
   padding: 18px;
 }
 
@@ -1070,7 +1073,9 @@ textarea {
   border-radius: 8px;
   color: #172334;
   min-height: 44px;
+  min-width: 0;
   padding: 10px 12px;
+  width: 100%;
 }
 
 .lead-form {
@@ -1560,7 +1565,50 @@ summary,
 }
 
 .filter-form {
-  grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(120px, 1fr)) auto auto;
+  align-items: end;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.filter-form input[name="q"] {
+  grid-column: span 2;
+}
+
+.filter-form button,
+.admin-form button,
+.settings-form button,
+.note-form button,
+.privacy-form button,
+.restore-form button,
+.inline-security-form button,
+.user-row button,
+.category-admin-row button,
+.category-create-form button,
+.file-form button,
+.article-form button {
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 44px;
+  min-width: 112px;
+  padding: 10px 14px;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  white-space: nowrap;
+}
+
+.filter-form button:hover,
+.admin-form button:hover,
+.settings-form button:hover,
+.note-form button:hover,
+.privacy-form button:hover,
+.restore-form button:hover,
+.inline-security-form button:hover,
+.user-row button:hover,
+.category-admin-row button:hover,
+.category-create-form button:hover,
+.file-form button:hover,
+.article-form button:hover {
+  box-shadow: 0 10px 22px rgba(22, 35, 52, 0.1);
+  transform: translateY(-1px);
 }
 
 .settings-form {
@@ -2395,6 +2443,10 @@ summary,
     grid-template-columns: 1fr;
   }
 
+  .filter-form input[name="q"] {
+    grid-column: auto;
+  }
+
   .advisor,
   .qr-mini,
   .hero-actions,
@@ -2573,5 +2625,22 @@ summary,
   .hero-actions .secondary-btn {
     flex-basis: auto;
     width: 100%;
+  }
+
+  .loan-tab-panel {
+    padding: 22px 14px;
+  }
+
+  .loan-application-card .lead-form {
+    padding: 18px 14px;
+  }
+
+  .field-grid,
+  .calc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .context-fields {
+    padding: 16px 12px;
   }
 }
