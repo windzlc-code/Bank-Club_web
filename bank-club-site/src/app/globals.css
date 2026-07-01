@@ -1811,6 +1811,27 @@ summary,
   color: #5d6875;
 }
 
+.admin-file-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-file-item {
+  background: #fff;
+  border: 1px solid #e3dfd3;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.admin-file-item small,
+.admin-file-list small {
+  color: #6d7784;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .detail-controls,
 .detail-flags {
   display: grid;

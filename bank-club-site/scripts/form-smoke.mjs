@@ -293,6 +293,60 @@ async function run() {
       fail("credit ID file records should persist PNG mime type, checksum, and uploaded status");
     }
     creditUploadDirToRemove = path.join(process.cwd(), ".data", "credit-application-files", creditApplication.id);
+    const frontCreditFile = creditFiles.find((file) => file.fileType === "id_front");
+    const backCreditFile = creditFiles.find((file) => file.fileType === "id_back");
+    if (!frontCreditFile || !backCreditFile) fail("credit application should persist both id_front and id_back file records");
+    const reuploadResponse = await fetchJson(`/api/admin/credit-application-files/${frontCreditFile.id}`, {
+      method: "PATCH",
+      headers: {
+        ...sameOriginHeaders(cookie, "127.0.0.126"),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ uploadStatus: "pending_reupload" }),
+    });
+    if (
+      !reuploadResponse.response.ok ||
+      reuploadResponse.json.creditApplication?.idUploadStatus !== "pending_reupload" ||
+      reuploadResponse.json.lead?.documentStatus !== "incomplete" ||
+      !reuploadResponse.json.creditApplicationFiles?.some((file) => file.id === frontCreditFile.id && file.uploadStatus === "pending_reupload")
+    ) {
+      fail(`credit ID reupload request failed HTTP ${reuploadResponse.response.status}: ${reuploadResponse.json.message || ""}`);
+    }
+    const confirmResponse = await fetchJson(`/api/admin/credit-application-files/${frontCreditFile.id}`, {
+      method: "PATCH",
+      headers: {
+        ...sameOriginHeaders(cookie, "127.0.0.126"),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ uploadStatus: "uploaded" }),
+    });
+    if (
+      !confirmResponse.response.ok ||
+      confirmResponse.json.creditApplication?.idUploadStatus !== "uploaded" ||
+      confirmResponse.json.lead?.documentStatus !== "received" ||
+      !confirmResponse.json.creditApplicationFiles?.some((file) => file.id === frontCreditFile.id && file.uploadStatus === "uploaded")
+    ) {
+      fail(`credit ID confirmation failed HTTP ${confirmResponse.response.status}: ${confirmResponse.json.message || ""}`);
+    }
+    const deleteCreditFileResponse = await fetchJson(`/api/admin/credit-application-files/${backCreditFile.id}`, {
+      method: "DELETE",
+      headers: sameOriginHeaders(cookie, "127.0.0.126"),
+    });
+    if (
+      !deleteCreditFileResponse.response.ok ||
+      deleteCreditFileResponse.json.creditApplication?.idUploadStatus !== "pending_reupload" ||
+      deleteCreditFileResponse.json.creditApplication?.status !== "pending_documents" ||
+      deleteCreditFileResponse.json.lead?.documentStatus !== "incomplete" ||
+      !deleteCreditFileResponse.json.creditApplicationFiles?.some((file) => file.id === backCreditFile.id && file.uploadStatus === "deleted" && file.deletedAt)
+    ) {
+      fail(`credit ID delete failed HTTP ${deleteCreditFileResponse.response.status}: ${deleteCreditFileResponse.json.message || ""}`);
+    }
+    const dbAfterCreditFileAdmin = await readDb();
+    for (const action of ["credit_id_file_reupload_requested", "credit_id_file_confirmed", "credit_id_file_deleted"]) {
+      if (!dbAfterCreditFileAdmin.auditLogs.some((log) => log.action === action)) {
+        fail(`missing audit log for ${action}`);
+      }
+    }
 
     await mkdir(screenshotDir, { recursive: true });
     browser = await chromium.launch();
@@ -782,6 +836,8 @@ async function run() {
         applicationNo: creditApplication.applicationNo,
         idFileCount: creditFiles.length,
         missingFileStatus: missingCreditFileResponse.status,
+        reuploadStatus: reuploadResponse.json.creditApplication.idUploadStatus,
+        deletedFileStatus: deleteCreditFileResponse.json.creditApplication.idUploadStatus,
       },
       screenshots: screenshotPaths,
     }, null, 2));

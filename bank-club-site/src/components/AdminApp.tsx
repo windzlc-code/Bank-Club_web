@@ -170,6 +170,12 @@ const documentStatusLabels: Record<DocumentStatus, string> = {
   incomplete: "資料不完整",
   confirmed: "已確認",
 };
+const creditFileStatusLabels: Record<CreditApplicationFile["uploadStatus"], string> = {
+  uploaded: "已上傳",
+  validation_failed: "格式驗證失敗",
+  pending_reupload: "待重傳",
+  deleted: "已刪除",
+};
 const priorityLabels: Record<LeadPriority, string> = {
   normal: "一般",
   needs_review: "需人工判斷",
@@ -711,6 +717,41 @@ export function AdminApp() {
     }
     setSelected(json.lead);
     setAssignments(json.assignments || []);
+    await hydrate(leadFilters);
+  }
+
+  async function updateCreditFileStatus(fileId: string, uploadStatus: CreditApplicationFile["uploadStatus"]) {
+    if (!selected) return;
+    const response = await fetch(`/api/admin/credit-application-files/${fileId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ uploadStatus }),
+    });
+    const json = (await response.json().catch(() => ({}))) as LeadDetailPayload & { message?: string };
+    if (!response.ok || !json.lead) {
+      setMessage(json.message || "信貸文件狀態更新失敗。");
+      return;
+    }
+    setSelected(json.lead);
+    setCreditApplication(json.creditApplication || null);
+    setCreditApplicationFiles(json.creditApplicationFiles || []);
+    setMessage(uploadStatus === "uploaded" ? "身分證文件已確認清楚。" : "已標記身分證文件待重傳。");
+    await hydrate(leadFilters);
+  }
+
+  async function deleteCreditFile(fileId: string) {
+    if (!selected) return;
+    if (!window.confirm("確定刪除此身分證檔案？刪除後會標記待重傳，且此操作會寫入稽核紀錄。")) return;
+    const response = await fetch(`/api/admin/credit-application-files/${fileId}`, { method: "DELETE" });
+    const json = (await response.json().catch(() => ({}))) as LeadDetailPayload & { message?: string };
+    if (!response.ok || !json.lead) {
+      setMessage(json.message || "信貸文件刪除失敗。");
+      return;
+    }
+    setSelected(json.lead);
+    setCreditApplication(json.creditApplication || null);
+    setCreditApplicationFiles(json.creditApplicationFiles || []);
+    setMessage("身分證文件已刪除，請透過 LINE 或電話提醒客戶重傳。");
     await hydrate(leadFilters);
   }
 
@@ -1405,9 +1446,45 @@ export function AdminApp() {
                       <span>適用方案：{creditApplication.programType || "未填"}</span>
                       <span>身分證上傳：{creditApplication.idUploadStatus}</span>
                       <span>財力 LINE 補件：{creditApplication.financialLineStatus}</span>
-                      <span className="full-field">
-                        身分證檔案：{creditApplicationFiles.length ? creditApplicationFiles.map((file) => `${file.fileType} ${file.mimeType} ${(file.sizeBytes / 1024).toFixed(1)}KB`).join("；") : "未記錄"}
-                      </span>
+                      <div className="full-field admin-file-list">
+                        <strong>身分證安全文件</strong>
+                        {creditApplicationFiles.length ? creditApplicationFiles.map((file) => (
+                          <div className="admin-file-item" key={file.id}>
+                            <span>
+                              {file.fileType === "id_front" ? "正面" : "反面"}｜
+                              {creditFileStatusLabels[file.uploadStatus]}｜
+                              {file.mimeType}｜
+                              {(file.sizeBytes / 1024).toFixed(1)} KB｜
+                              SHA-256 {file.checksum.slice(0, 12)}
+                            </span>
+                            <small>
+                              建立：{file.createdAt ? new Date(file.createdAt).toLocaleString("zh-TW") : "未記錄"}
+                              {file.reviewedAt ? `｜最後處理：${new Date(file.reviewedAt).toLocaleString("zh-TW")}` : ""}
+                              {file.deletedAt ? `｜刪除：${new Date(file.deletedAt).toLocaleString("zh-TW")}` : ""}
+                            </small>
+                            <div className="row-actions">
+                              <button
+                                type="button"
+                                disabled={file.uploadStatus === "pending_reupload" || file.uploadStatus === "deleted"}
+                                onClick={() => updateCreditFileStatus(file.id, "pending_reupload")}
+                              >
+                                要求重傳
+                              </button>
+                              <button
+                                type="button"
+                                disabled={file.uploadStatus === "uploaded"}
+                                onClick={() => updateCreditFileStatus(file.id, "uploaded")}
+                              >
+                                確認清楚
+                              </button>
+                              <button type="button" disabled={file.uploadStatus === "deleted"} onClick={() => deleteCreditFile(file.id)}>
+                                刪除文件
+                              </button>
+                            </div>
+                          </div>
+                        )) : <span>未記錄</span>}
+                        <small>本站後台只顯示必要 metadata 與處理狀態；財力證明仍透過 LINE 與專員確認，不在此處上傳。</small>
+                      </div>
                     </div>
                   ) : null}
                   {houseLoanApplication ? (
