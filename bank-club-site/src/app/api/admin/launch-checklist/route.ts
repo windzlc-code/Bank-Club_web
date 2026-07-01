@@ -525,6 +525,8 @@ async function checkSecurityHeaders(origin: string): Promise<LaunchCheck[]> {
   try {
     const response = await fetch(`${origin}/`, { cache: "no-store" });
     const csp = response.headers.get("content-security-policy") || "";
+    const isHttps = origin.startsWith("https://");
+    const hsts = response.headers.get("strict-transport-security") || "";
     return [
       check(
         "headers:csp",
@@ -535,8 +537,8 @@ async function checkSecurityHeaders(origin: string): Promise<LaunchCheck[]> {
       check(
         "headers:hsts",
         "Strict-Transport-Security",
-        Boolean(response.headers.get("strict-transport-security")),
-        response.headers.get("strict-transport-security") || "未設定 HSTS",
+        isHttps ? Boolean(hsts) : !hsts,
+        isHttps ? hsts || "HTTPS 正式域名未設定 HSTS" : hsts ? `HTTP 環境不應送出 HSTS：${hsts}` : "HTTP 環境略過 HSTS",
         true,
       ),
       check(
