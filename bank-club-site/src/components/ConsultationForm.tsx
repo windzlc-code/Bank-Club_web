@@ -109,6 +109,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
   const [formStartedAt] = useState(() => Date.now().toString());
   const [loanType, setLoanType] = useState<LoanType>(defaultLoanType as LoanType);
   const [purpose, setPurpose] = useState("unsure");
+  const [existingMortgage, setExistingMortgage] = useState("");
   const [idFrontUpload, setIdFrontUpload] = useState<CreditUploadState>(() => emptyUploadState());
   const [idBackUpload, setIdBackUpload] = useState<CreditUploadState>(() => emptyUploadState());
   const idFrontInputRef = useRef<HTMLInputElement>(null);
@@ -258,7 +259,8 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
         </label>
         <label>
           LINE ID
-          <input name="lineId" placeholder="方便專員後續聯繫" />
+          <input name="lineId" required={loanType !== "unknown"} placeholder="方便專員後續聯繫" />
+          <span className="field-help">三類貸款申請需留下 LINE ID，方便送出後確認補件方式。</span>
         </label>
         <label>
           身份類型
@@ -285,7 +287,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
         </label>
         <label>
           期望金額
-          <select name="desiredAmount" defaultValue={loanType === "credit" ? "7000000" : ""}>
+          <select key={loanType} name="desiredAmount" required={loanType !== "unknown"} defaultValue={loanType === "credit" ? "7000000" : ""}>
             <option value="">尚不確定，先諮詢</option>
             {amountOptionsFor(loanType).map(([value, label]) => (
               <option key={value} value={value}>
@@ -394,7 +396,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
             <label>
               房屋區域
-              <input name="propertyArea" placeholder="例如：中和區" />
+              <input name="propertyArea" required placeholder="例如：中和區" />
             </label>
             <label>
               房屋類型
@@ -430,7 +432,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
             <label>
               是否已有貸款
-              <select name="existingMortgage" required defaultValue="">
+              <select name="existingMortgage" required value={existingMortgage} onChange={(event) => setExistingMortgage(event.target.value)}>
                 <option value="" disabled>請選擇</option>
                 <option value="none">無既有房貸</option>
                 <option value="has_mortgage">已有房貸</option>
@@ -439,11 +441,13 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
             <label>
               目前貸款銀行
-              <input name="currentBank" placeholder="已有貸款時可填" />
+              <input name="currentBank" required={existingMortgage === "has_mortgage" || existingMortgage === "second_mortgage"} placeholder="已有貸款時必填" />
+              <span className="field-help">選擇已有房貸或二胎時，請填目前銀行或債權單位。</span>
             </label>
             <label>
               剩餘貸款金額
-              <input name="remainingBalance" placeholder="已有貸款時可填" inputMode="numeric" />
+              <input name="remainingBalance" required={existingMortgage === "has_mortgage" || existingMortgage === "second_mortgage"} placeholder="已有貸款時必填" inputMode="numeric" />
+              <span className="field-help">可填概估金額，專員後續再透過 LINE 確認補件。</span>
             </label>
             <label>
               期望貸款年限
@@ -478,6 +482,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
                 <option value="business_credit">企業信用貸</option>
                 <option value="factory_mortgage">廠房不動產抵押貸</option>
                 <option value="working_capital">營運週轉金貸款</option>
+                <option value="unsure">不確定，先諮詢</option>
               </select>
             </label>
             <label>

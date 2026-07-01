@@ -595,6 +595,8 @@ async function run() {
     await houseForm.locator('select[name="propertyType"]').selectOption("elevator");
     await houseForm.locator('input[name="estimatedPropertyValue"]').fill("16000000");
     await houseForm.locator('select[name="existingMortgage"]').selectOption("has_mortgage");
+    await houseForm.locator('input[name="currentBank"]').fill("測試銀行");
+    await houseForm.locator('input[name="remainingBalance"]').fill("5200000");
     await houseForm.locator('textarea[name="note"]').fill("房貸表單煙測：確認房屋資料諮詢表提交與後台保存。");
     await houseForm.locator('input[name="consent"]').check();
     await page.screenshot({ path: screenshotPaths.houseForm, fullPage: true });

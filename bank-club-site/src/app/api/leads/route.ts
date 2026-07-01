@@ -15,6 +15,8 @@ const attemptLimitMax = 20;
 const creditUploadDir = path.join(process.cwd(), ".data", "credit-application-files");
 const allowedCreditFileTypes = new Set(["image/jpeg", "image/png", "image/heic", "image/heif"]);
 const maxCreditFileBytes = 8 * 1024 * 1024;
+const loanTypes = new Set<LoanType>(["credit", "house", "business", "unknown"]);
+const identityTypes = new Set<IdentityType>(["employee", "self_employed", "business_owner", "home_owner", "other"]);
 
 function text(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
@@ -90,6 +92,10 @@ function rawPurposeLabel(value: string) {
     high_risk: "投資理財或高風險用途",
   };
   return labels[value] || value || "不確定，先諮詢專員";
+}
+
+function missingFieldsResponse(fields: string[]) {
+  return NextResponse.json({ message: `請完整填寫：${fields.join("、")}` }, { status: 400 });
 }
 
 function validateCreditFile(file: FormDataEntryValue | null, label: string): file is File {
@@ -169,6 +175,12 @@ export async function POST(request: Request) {
   if (!name || !phoneInput || !identityType || !loanType || !appointmentTime || consent !== "on") {
     return NextResponse.json({ message: "請完整填寫必填欄位並勾選個資告知同意" }, { status: 400 });
   }
+  if (!loanTypes.has(loanType) || !identityTypes.has(identityType)) {
+    return NextResponse.json({ message: "請選擇有效的身份類型與貸款類型" }, { status: 400 });
+  }
+  if (loanType !== "unknown" && !lineId) {
+    return missingFieldsResponse(["LINE ID"]);
+  }
   if (!/^09\d{8}$/.test(phoneDigits(phoneInput))) {
     return NextResponse.json({ message: "請填寫可聯繫的台灣手機號碼" }, { status: 400 });
   }
@@ -177,6 +189,43 @@ export async function POST(request: Request) {
     return NextResponse.json({
       message: `表單備註請只描述需求摘要，不要貼上身分證、銀行帳號或完整敏感文件內容。偵測到：${sensitiveNote.reasons.join("、")}。`,
     }, { status: 400 });
+  }
+
+  if (loanType === "credit") {
+    const missing = [
+      !optionalInteger(text(form.get("requestedAmount"))) ? "信貸申請金額" : "",
+      !optionalInteger(text(form.get("requestedTermYears"))) ? "信貸申請年限" : "",
+      !text(form.get("caseSource")) ? "案件來源" : "",
+      !text(form.get("programType")) ? "適用方案" : "",
+    ].filter(Boolean);
+    if (missing.length) return missingFieldsResponse(missing);
+  }
+  if (loanType === "house") {
+    const existingMortgage = text(form.get("existingMortgage"));
+    const hasExistingMortgage = existingMortgage === "has_mortgage" || existingMortgage === "second_mortgage";
+    const missing = [
+      !text(form.get("houseLoanType")) ? "房貸類型" : "",
+      !text(form.get("propertyCity")) ? "房屋縣市" : "",
+      !text(form.get("propertyArea")) ? "房屋區域" : "",
+      !text(form.get("propertyType")) ? "房屋類型" : "",
+      !existingMortgage ? "是否已有貸款" : "",
+      !optionalInteger(text(form.get("desiredAmount"))) && !optionalInteger(text(form.get("requestedAmount"))) ? "期望貸款金額" : "",
+      hasExistingMortgage && !text(form.get("currentBank")) ? "目前貸款銀行" : "",
+      hasExistingMortgage && !optionalInteger(text(form.get("remainingBalance"))) ? "剩餘貸款金額" : "",
+    ].filter(Boolean);
+    if (missing.length) return missingFieldsResponse(missing);
+  }
+  if (loanType === "business") {
+    const missing = [
+      !text(form.get("businessLoanType")) ? "企業貸款類型" : "",
+      !text(form.get("businessName")) ? "公司 / 商號名稱" : "",
+      !text(form.get("businessType")) ? "企業型態" : "",
+      optionalDecimal(text(form.get("operatingYears"))) === null ? "營業年數" : "",
+      !text(form.get("businessLocation")) ? "企業所在地" : "",
+      !text(form.get("monthlyRevenueRange")) ? "月平均營收區間" : "",
+      !optionalInteger(text(form.get("desiredAmount"))) && !optionalInteger(text(form.get("requestedAmount"))) ? "期望貸款金額" : "",
+    ].filter(Boolean);
+    if (missing.length) return missingFieldsResponse(missing);
   }
 
   let creditFiles: { front: CreditApplicationFile; back: CreditApplicationFile } | null = null;
