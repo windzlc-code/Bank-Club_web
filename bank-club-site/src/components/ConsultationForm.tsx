@@ -162,6 +162,21 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
     setUploadProgress("");
   }
 
+  function renderPurposeSelect() {
+    return (
+      <label>
+        資金用途
+        <select name="purpose" value={purpose} onChange={(event) => setPurpose(event.target.value)}>
+          <option value="living">生活消費</option>
+          <option value="renovation">房屋修繕</option>
+          <option value="business">合法營運週轉</option>
+          <option value="unsure">不確定，想先諮詢專員</option>
+          <option value="high_risk">投資理財或高風險用途</option>
+        </select>
+      </label>
+    );
+  }
+
   function renderCreditUpload(side: CreditUploadSide, title: string, help: string) {
     const state = side === "front" ? idFrontUpload : idBackUpload;
     const inputId = side === "front" ? "id-front-upload" : "id-back-upload";
@@ -178,13 +193,13 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
           ref={inputRef}
           name={side === "front" ? "idFront" : "idBack"}
           type="file"
-          required
+          className="upload-native-input"
           accept="image/jpeg,image/png,image/heic,image/heif"
           onChange={(event) => handleCreditFileChange(side, event)}
         />
-        <div className="upload-preview-card">
+        <label className="upload-preview-card" htmlFor={inputId}>
           {state.previewUrl ? (
-            <Image src={state.previewUrl} alt={`${title}預覽`} width={86} height={65} unoptimized />
+            <Image src={state.previewUrl} alt={`${title}預覽`} width={136} height={102} unoptimized />
           ) : (
             <div className="upload-preview-placeholder">{hasSelectedFile ? "已選擇 HEIC 檔案" : "尚未選擇檔案"}</div>
           )}
@@ -192,13 +207,13 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             <strong>{displayName}</strong>
             <span>{hasSelectedFile ? `${formatFileSize(displaySize)}，送出前可刪除重選。` : help}</span>
             {state.error ? <span className="upload-error">{state.error}</span> : null}
-            {hasSelectedFile ? (
-              <button type="button" className="ghost-button upload-clear-button" onClick={() => clearCreditFile(side)}>
-                刪除重傳
-              </button>
-            ) : null}
           </div>
-        </div>
+        </label>
+        {hasSelectedFile ? (
+          <button type="button" className="ghost-button upload-clear-button" onClick={() => clearCreditFile(side)}>
+            刪除重傳
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -248,80 +263,57 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
     <form className="lead-form" onSubmit={submit}>
       <input name="website" type="text" tabIndex={-1} autoComplete="off" aria-hidden="true" className="bot-field" />
       <input name="formStartedAt" type="hidden" value={formStartedAt} />
-      <div className="field-grid">
-        <label>
-          姓名
-          <input name="name" required placeholder="請輸入姓名" />
-        </label>
-        <label>
-          手機
-          <input name="phone" required placeholder="09xx xxx xxx" inputMode="tel" />
-        </label>
-        <label>
-          LINE ID
-          <input name="lineId" required={loanType !== "unknown"} placeholder="方便專員後續聯繫" />
-          <span className="field-help">三類貸款申請需留下 LINE ID，方便送出後確認補件方式。</span>
-        </label>
-        <label>
-          身份類型
-          <select name="identityType" required defaultValue={defaultIdentityType as IdentityType | ""}>
-            <option value="" disabled>
-              請選擇
-            </option>
-            {Object.entries(identityLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+      <fieldset className="context-fields form-section">
+        <legend>聯絡資料與需求類型</legend>
+        <p className="field-note">先留下聯絡方式與貸款類型，再依所選類型填寫對應申請資料。</p>
+        <div className="field-grid">
+          <label>
+            姓名
+            <input name="name" required placeholder="請輸入姓名" />
+          </label>
+          <label>
+            手機
+            <input name="phone" required placeholder="09xx xxx xxx" inputMode="tel" />
+          </label>
+          <label>
+            LINE ID
+            <input name="lineId" required={loanType !== "unknown"} placeholder="方便專員後續聯繫" />
+            <span className="field-help">三類貸款申請需留下 LINE ID，方便送出後確認補件方式。</span>
+          </label>
+          <label>
+            身份類型
+            <select name="identityType" required defaultValue={defaultIdentityType as IdentityType | ""}>
+              <option value="" disabled>
+                請選擇
               </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          貸款類型
-          <select name="loanType" required value={loanType} onChange={(event) => setLoanType(event.target.value as LoanType)}>
-            {Object.entries(loanLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          期望金額
-          <select key={loanType} name="desiredAmount" required={loanType !== "unknown"} defaultValue={loanType === "credit" ? "7000000" : ""}>
-            <option value="">尚不確定，先諮詢</option>
-            {amountOptionsFor(loanType).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          預約時段
-          <input name="appointmentTime" required type="datetime-local" />
-        </label>
-        <label>
-          資金用途
-          <select name="purpose" value={purpose} onChange={(event) => setPurpose(event.target.value)}>
-            <option value="living">生活消費</option>
-            <option value="renovation">房屋修繕</option>
-            <option value="business">合法營運週轉</option>
-            <option value="unsure">不確定，想先諮詢專員</option>
-            <option value="high_risk">投資理財或高風險用途</option>
-          </select>
-        </label>
-      </div>
-      {purpose === "high_risk" ? (
-        <div className="warning-block form-warning" role="alert">
-          <h3>資金用途需先確認是否符合銀行規範</h3>
-          <p>請依本人真實需求、銀行官方頁面與個案審核結果填寫，不要包裝或填寫不真實用途。不確定時先由專員協助確認是否適合送件。</p>
+              {Object.entries(identityLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            貸款類型
+            <select name="loanType" required value={loanType} onChange={(event) => setLoanType(event.target.value as LoanType)}>
+              {Object.entries(loanLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            預約時段
+            <input name="appointmentTime" required type="datetime-local" />
+          </label>
         </div>
-      ) : null}
+      </fieldset>
       {loanType === "credit" ? (
         <fieldset className="context-fields">
           <legend>信貸網路申請資料</legend>
           <p className="field-note">本站信貸申請只收身分證正反面。財力證明請傳 LINE 給專員確認補件方式。</p>
-          <div className="field-grid">
+          <div className="field-grid credit-basic-grid">
             <label>
               申請金額
               <select name="requestedAmount" required defaultValue="7000000">
@@ -341,6 +333,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
                 <option value="3">3 年</option>
               </select>
             </label>
+            {renderPurposeSelect()}
             <label>
               案件來源
               <select name="caseSource" required defaultValue="company_preferential">
@@ -357,6 +350,14 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
                 <option value="unsure">不確定，先諮詢</option>
               </select>
             </label>
+          </div>
+          {purpose === "high_risk" ? (
+            <div className="warning-block form-warning" role="alert">
+              <h3>資金用途需先確認是否符合銀行規範</h3>
+              <p>請依本人真實需求、銀行官方頁面與個案審核結果填寫，不要包裝或填寫不真實用途。不確定時先由專員協助確認是否適合送件。</p>
+            </div>
+          ) : null}
+          <div className="credit-upload-grid">
             {renderCreditUpload("front", "身分證正面", "支援 JPG、PNG、HEIC，請確認四角完整且清楚對焦。")}
             {renderCreditUpload("back", "身分證反面", "正反面缺一不可；若上傳失敗可保留檔案再次送出，或刪除重選。")}
           </div>
@@ -381,6 +382,17 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
                 <option value="second_mortgage">二胎房貸</option>
                 <option value="renovation">老屋修繕貸款</option>
                 <option value="unsure">不確定，先諮詢</option>
+              </select>
+            </label>
+            <label>
+              期望貸款金額
+              <select key={loanType} name="desiredAmount" required defaultValue="">
+                <option value="">尚不確定，先諮詢</option>
+                {amountOptionsFor("house").map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </label>
             <label>
@@ -467,6 +479,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
                 <option value="yes">需要專員評估</option>
               </select>
             </label>
+            {renderPurposeSelect()}
           </div>
         </fieldset>
       ) : null}
@@ -569,6 +582,17 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
               </select>
             </label>
             <label>
+              期望貸款金額
+              <select key={loanType} name="desiredAmount" required defaultValue="">
+                <option value="">尚不確定，先諮詢</option>
+                {amountOptionsFor("business").map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
               期望還款年限
               <select name="requestedTermYears" defaultValue="">
                 <option value="">尚不確定</option>
@@ -579,6 +603,7 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
                 <option value="10">10 年</option>
               </select>
             </label>
+            {renderPurposeSelect()}
             <label>
               是否有抵押品
               <select name="hasCollateral" defaultValue="no">
@@ -595,6 +620,32 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
           </div>
         </fieldset>
+      ) : null}
+      {loanType === "unknown" ? (
+        <fieldset className="context-fields">
+          <legend>需求摘要</legend>
+          <p className="field-note">還不確定貸款類型時，先留下期望金額與資金用途，專員會協助判斷適合入口。</p>
+          <div className="field-grid">
+            <label>
+              期望金額
+              <select name="desiredAmount" defaultValue="">
+                <option value="">尚不確定，先諮詢</option>
+                {amountOptionsFor("unknown").map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {renderPurposeSelect()}
+          </div>
+        </fieldset>
+      ) : null}
+      {loanType !== "credit" && purpose === "high_risk" ? (
+        <div className="warning-block form-warning" role="alert">
+          <h3>資金用途需先確認是否符合銀行規範</h3>
+          <p>請依本人真實需求、銀行官方頁面與個案審核結果填寫，不要包裝或填寫不真實用途。不確定時先由專員協助確認是否適合送件。</p>
+        </div>
       ) : null}
       <label className="full-field">
         備註

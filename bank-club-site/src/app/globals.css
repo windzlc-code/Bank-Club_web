@@ -957,6 +957,10 @@ label {
   padding: 0 8px;
 }
 
+.form-section {
+  margin-top: 0;
+}
+
 .field-note,
 .field-help {
   color: #6b7280;
@@ -976,6 +980,8 @@ label {
 .upload-field {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  position: relative;
 }
 
 .upload-field > label {
@@ -984,16 +990,46 @@ label {
   font-weight: 800;
 }
 
+.upload-native-input {
+  height: 1px;
+  inset: 34px auto auto 0;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.credit-upload-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
 .upload-preview-card {
   align-items: center;
   background: #fbfaf7;
   border: 1px solid #e6e3da;
   border-radius: 8px;
+  cursor: pointer;
   display: grid;
-  gap: 12px;
-  grid-template-columns: 86px minmax(0, 1fr);
-  min-height: 112px;
-  padding: 12px;
+  gap: 16px;
+  grid-template-columns: 136px minmax(0, 1fr);
+  min-height: 176px;
+  padding: 16px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.upload-preview-card:hover,
+.upload-preview-card:focus-within {
+  border-color: var(--green);
+  box-shadow: 0 10px 24px rgba(37, 95, 68, 0.12);
+  transform: translateY(-1px);
+}
+
+.upload-preview-card:active {
+  transform: translateY(0);
 }
 
 .upload-preview-card img,
@@ -1010,9 +1046,9 @@ label {
   justify-content: center;
   line-height: 1.4;
   object-fit: cover;
-  padding: 8px;
+  padding: 10px;
   text-align: center;
-  width: 86px;
+  width: 136px;
 }
 
 .upload-preview-card div:last-child {
@@ -1023,13 +1059,13 @@ label {
 
 .upload-preview-card strong {
   color: #172334;
-  font-size: 14px;
+  font-size: 16px;
   overflow-wrap: anywhere;
 }
 
 .upload-preview-card span {
   color: #6b7280;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.5;
 }
@@ -2638,6 +2674,21 @@ summary,
   .field-grid,
   .calc-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .credit-upload-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .upload-preview-card {
+    grid-template-columns: 108px minmax(0, 1fr);
+    min-height: 142px;
+    padding: 12px;
+  }
+
+  .upload-preview-card img,
+  .upload-preview-placeholder {
+    width: 108px;
   }
 
   .context-fields {
