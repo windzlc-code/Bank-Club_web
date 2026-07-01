@@ -157,12 +157,6 @@ async function assertLinkHref(page, locator, label, expectedHost, expectedParams
   return href;
 }
 
-async function assertExactHref(page, locator, label, expectedHref) {
-  const href = await locator.getAttribute("href");
-  if (href !== expectedHref) fail(`${label}: expected ${expectedHref}, got ${href || "missing"}`);
-  return href;
-}
-
 async function readDb() {
   return readDbJson(dbPath);
 }
@@ -222,7 +216,11 @@ async function run() {
     const creditLine = page.getByRole("link", { name: "LINE 詢問專員" }).first();
     const creditLineHref = await assertLinkHref(page, creditLine, "credit LINE href", "line.me", { source_page: "credit", utm_medium: "line_cta" });
     assertUrl(await clickPopup(page, creditLine, "credit LINE click"), "credit LINE popup", "line.me", { source_page: "credit" });
-    const creditOfficialHref = await assertExactHref(page, page.getByRole("link", { name: "即將前往銀行官方申請頁面" }), "credit official apply href", smokeOfficialApplyUrl);
+    const creditOfficialLinks = await page.getByRole("link", { name: /銀行官方申請頁面|官方申請頁面|我要申請/ }).count();
+    if (creditOfficialLinks !== 0) fail(`credit page should keep the main application flow in-site, found ${creditOfficialLinks} official apply links`);
+    const creditApplicationFormCount = await page.locator("#credit-application form.lead-form").count();
+    if (creditApplicationFormCount !== 1) fail(`credit page should render one in-site application form, found ${creditApplicationFormCount}`);
+    const creditOfficialHref = "in-site-credit-application";
 
     await page.goto(`${baseUrl}/house-loan`, { waitUntil: "networkidle" });
     const houseLine = page.getByRole("link", { name: "LINE 詢問專員" }).first();

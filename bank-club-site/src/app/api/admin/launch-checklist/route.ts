@@ -74,7 +74,7 @@ const requiredQaQuestionPhrases = [
 ];
 const copyScanPaths = publicPaths.filter((path) => !path.startsWith("/api") && !path.endsWith(".xml") && !path.endsWith(".txt"));
 const performancePaths = copyScanPaths.filter((path) => path !== "/admin");
-const fullFooterPaths = copyScanPaths.filter((path) => path !== "/");
+const fullFooterPaths = copyScanPaths;
 const maxHtmlBytes = 260 * 1024;
 const maxResponseMs = 1500;
 const maxStaticScriptBytes = 760 * 1024;
@@ -1088,6 +1088,54 @@ async function checkSitemapCoverage(origin: string, db: Awaited<ReturnType<typeo
   }
 }
 
+async function checkSiteMapInformationArchitecture(origin: string): Promise<LaunchCheck> {
+  const requiredCopy = [
+    "首頁",
+    "信用貸款",
+    "房屋貸款",
+    "企業貸款",
+    "申請流程教學",
+    "銀行資格與文件總整理",
+    "常見 QA",
+    "免費諮詢預約",
+    "FB 銀行俱樂部社團",
+    "聯絡我們 / LINE 諮詢",
+    "部落格文章列表",
+    "隱私權政策與個資告知",
+    "金融風險聲明",
+    "服務條款",
+    "後台登入頁",
+    "後台儀表板",
+    "後台線索管理頁",
+    "後台文章管理頁",
+    "後台文件資源管理頁",
+    "後台統計頁",
+  ];
+  const requiredLinks = ["/", "/credit-loan", "/house-loan", "/business-loan", "/application-flow", "/documents", "/qa", "/consultation", "/facebook", "/contact", "/blog", "/privacy", "/risk", "/terms", "/admin"];
+
+  try {
+    const response = await fetch(`${origin}/site-map`, { cache: "no-store" });
+    const html = await response.text();
+    if (!response.ok) return check("ia:site-map", "網站地圖信息架構", false, `HTTP ${response.status}`);
+
+    const missingCopy = requiredCopy.filter((label) => !html.includes(label));
+    const missingLinks = requiredLinks.filter((path) => !findHref(html, origin, "/site-map", (url) => url.origin === origin && url.pathname === path));
+    const failures = [
+      ...missingCopy.map((label) => `文案 ${label}`),
+      ...missingLinks.map((path) => `連結 ${path}`),
+    ];
+
+    return check(
+      "ia:site-map",
+      "網站地圖信息架構",
+      failures.length === 0,
+      failures.length ? `缺少 ${failures.slice(0, 12).join("、")}` : "網站地圖已覆蓋前台完整頁面清單與後台登入、儀表板、線索、文章、文件、統計模組",
+    );
+  } catch (error) {
+    return check("ia:site-map", "網站地圖信息架構", false, error instanceof Error ? error.message : "request failed");
+  }
+}
+
 async function checkMaterialAsset(origin: string, slug: string): Promise<LaunchCheck> {
   const path = materialAssetPath(slug);
   try {
@@ -1172,10 +1220,6 @@ function isLineUrl(url: URL, origin: string) {
     (url.protocol === "https:" && (host === "line.me" || host.endsWith(".line.me") || host === "lin.ee" || host.endsWith(".lin.ee"))) ||
     (url.origin === origin && url.pathname === "/contact" && url.hash === "#line-qr")
   );
-}
-
-function isOfficialApplyUrl(url: URL) {
-  return url.protocol === "https:";
 }
 
 function hasSearchParam(url: URL, key: string, value: string) {
@@ -1348,6 +1392,57 @@ async function checkFooterRiskLinks(origin: string): Promise<LaunchCheck> {
   );
 }
 
+async function checkHeaderInformationArchitecture(origin: string): Promise<LaunchCheck> {
+  const failures: string[] = [];
+  const topLevelRequirements = [
+    { label: "首頁", pathname: "/" },
+    { label: "申請流程教學", pathname: "/application-flow" },
+    { label: "銀行資格與文件總整理", pathname: "/documents" },
+    { label: "常見 QA", pathname: "/qa" },
+    { label: "免費諮詢預約", pathname: "/consultation" },
+    { label: "FB 銀行俱樂部社團", pathname: "/facebook" },
+  ];
+  const loanDropdownRequirements = [
+    { label: "信用貸款", pathname: "/credit-loan" },
+    { label: "房屋貸款", pathname: "/house-loan" },
+    { label: "企業貸款", pathname: "/business-loan" },
+  ];
+
+  try {
+    const response = await fetch(`${origin}/`, { cache: "no-store" });
+    const html = await response.text();
+    if (!response.ok) {
+      return check("nav:information-architecture", "頂部導航信息架構", false, `HTTP ${response.status}`);
+    }
+    const headerHtml = html.match(/<header\b[\s\S]*?<\/header>/i)?.[0] || "";
+    if (!headerHtml) {
+      return check("nav:information-architecture", "頂部導航信息架構", false, "首頁缺少 header");
+    }
+    if (!headerHtml.includes("貸款服務")) failures.push("缺少貸款服務分組");
+    if (!headerHtml.includes("銀行資格與文件總整理")) failures.push("銀行資格與文件總整理文案");
+    for (const requirement of topLevelRequirements) {
+      const matched = findHref(headerHtml, origin, "/", (url) => url.origin === origin && url.pathname === requirement.pathname);
+      if (!matched) failures.push(requirement.label);
+    }
+    for (const requirement of loanDropdownRequirements) {
+      const matched = findHref(headerHtml, origin, "/", (url) => url.origin === origin && url.pathname === requirement.pathname);
+      if (!matched) failures.push(`貸款服務下拉:${requirement.label}`);
+    }
+    const headerLine = extractAnchorTags(headerHtml).find((tag) => extractAttribute(tag, "data-event-name") === "header_line_click");
+    const lineUrl = parseHref(origin, "/", extractAttribute(headerLine || "", "href"));
+    const lineLabel = extractAttribute(headerLine || "", "aria-label");
+    if (!lineUrl || !isLineUrl(lineUrl, origin) || !hasSearchParam(lineUrl, "source_page", "header") || lineLabel !== "聯絡我們 / LINE 諮詢") failures.push("金色 LINE 聯絡按鈕");
+    return check(
+      "nav:information-architecture",
+      "頂部導航信息架構",
+      failures.length === 0,
+      failures.length ? `缺少 ${failures.join(", ")}` : "頂部導航以 8 個入口呈現：三大貸款收納於貸款服務下拉，聯絡 / LINE 諮詢使用金色按鈕並保留 header 來源參數",
+    );
+  } catch (error) {
+    return check("nav:information-architecture", "頂部導航信息架構", false, error instanceof Error ? error.message : "request failed");
+  }
+}
+
 async function checkFullFooterEntrypoints(origin: string): Promise<LaunchCheck> {
   const failures: string[] = [];
   const internalRequirements = [
@@ -1388,6 +1483,9 @@ async function checkFullFooterEntrypoints(origin: string): Promise<LaunchCheck> 
         !fbUrl || !isFacebookUrl(fbUrl) || !hasSearchParam(fbUrl, "source_page", "footer") ? "FB 社團入口" : "",
         !formUrl || formUrl.origin !== origin || formUrl.pathname !== "/consultation" || formUrl.searchParams.get("source_page") !== "footer" ? "免費諮詢預約" : "",
         !footerHtml.includes("熱門文章") ? "熱門文章標題" : "",
+        !footerHtml.includes("銀行資格與文件總整理") ? "銀行資格與文件總整理" : "",
+        !footerHtml.includes("個資保護聲明") ? "個資保護聲明" : "",
+        !footerHtml.includes("免責 / 服務條款") ? "免責 / 服務條款" : "",
       ].filter(Boolean);
 
       for (const requirement of internalRequirements) {
@@ -1414,7 +1512,7 @@ async function checkFullFooterEntrypoints(origin: string): Promise<LaunchCheck> 
     failures.length === 0,
     failures.length
       ? failures.slice(0, 10).join("；")
-      : `${fullFooterPaths.length} 個非首頁公開頁均有三大貸款、LINE、FB、表單、熱門文章、法務與網站地圖入口`,
+      : `${fullFooterPaths.length} 個公開頁均有三大貸款、LINE、FB、表單、熱門文章、法務與網站地圖入口`,
   );
 }
 
@@ -1549,45 +1647,118 @@ async function checkFormDataMinimization(origin: string): Promise<LaunchCheck> {
   }
 }
 
+async function checkLoanApplicationTabReadiness(origin: string): Promise<LaunchCheck> {
+  const pageRequirements = [
+    {
+      path: "/credit-loan",
+      appId: "credit-application",
+      selectedTab: "credit-apply",
+      requiredSelects: ["loanType", "desiredAmount", "purpose", "requestedAmount", "requestedTermYears", "caseSource", "programType"],
+      requiredInputs: ["name", "phone", "lineId", "idFront", "idBack", "consent"],
+      requiredFileInputs: ["idFront", "idBack"],
+      forbiddenFileInputs: [],
+    },
+    {
+      path: "/house-loan",
+      appId: "house-application",
+      selectedTab: "house-apply",
+      requiredSelects: ["loanType", "desiredAmount", "purpose", "houseLoanType", "propertyCity", "propertyType", "existingMortgage", "requestedTermYears"],
+      requiredInputs: ["name", "phone", "lineId", "consent"],
+      requiredFileInputs: [],
+      forbiddenFileInputs: ["idFront", "idBack"],
+    },
+    {
+      path: "/business-loan",
+      appId: "business-application",
+      selectedTab: "business-apply",
+      requiredSelects: ["loanType", "desiredAmount", "purpose", "businessLoanType", "businessType", "industry", "operatingYears", "businessLocation", "monthlyRevenueRange", "requestedTermYears"],
+      requiredInputs: ["name", "phone", "lineId", "businessName", "consent"],
+      requiredFileInputs: [],
+      forbiddenFileInputs: ["idFront", "idBack"],
+    },
+  ];
+  const failures: string[] = [];
+
+  for (const requirement of pageRequirements) {
+    try {
+      const response = await fetch(`${origin}${requirement.path}`, { cache: "no-store" });
+      const html = await response.text();
+      if (!response.ok) {
+        failures.push(`${requirement.path}:HTTP ${response.status}`);
+        continue;
+      }
+
+      const appMatch = html.match(new RegExp(`<div[^>]+id=["']${requirement.appId}["'][\\s\\S]*?<\\/form>\\s*<\\/div>`, "i"));
+      const appHtml = appMatch?.[0] || "";
+      if (!appHtml) {
+        failures.push(`${requirement.path}:缺少 ${requirement.appId} 表單區`);
+        continue;
+      }
+      if (!/class=["'][^"']*\bloan-application-card\b/i.test(appHtml)) failures.push(`${requirement.path}:表單未使用居中穩定容器`);
+      if (!html.includes(`aria-controls="${requirement.selectedTab}-panel"`) || !html.includes(`data-active-tab="${requirement.selectedTab}"`)) {
+        failures.push(`${requirement.path}:預設未停在站內申請 tab`);
+      }
+
+      const controls = extractFormControlTags(appHtml);
+      const selectNames = new Set(controls.filter((tag) => tag.toLowerCase().startsWith("<select")).map((tag) => extractAttribute(tag, "name")));
+      const inputTags = controls.filter((tag) => tag.toLowerCase().startsWith("<input"));
+      const inputNames = new Set(inputTags.map((tag) => extractAttribute(tag, "name")));
+      const fileInputNames = new Set(inputTags.filter((tag) => extractAttribute(tag, "type").toLowerCase() === "file").map((tag) => extractAttribute(tag, "name")));
+
+      for (const name of requirement.requiredSelects) {
+        if (!selectNames.has(name)) failures.push(`${requirement.path}:欄位 ${name} 需為下拉選單`);
+      }
+      for (const name of requirement.requiredInputs) {
+        if (!inputNames.has(name)) failures.push(`${requirement.path}:缺少欄位 ${name}`);
+      }
+      for (const name of requirement.requiredFileInputs) {
+        if (!fileInputNames.has(name)) failures.push(`${requirement.path}:缺少必要上傳 ${name}`);
+      }
+      for (const name of requirement.forbiddenFileInputs) {
+        if (fileInputNames.has(name)) failures.push(`${requirement.path}:不應出現敏感上傳 ${name}`);
+      }
+    } catch (error) {
+      failures.push(`${requirement.path}:${error instanceof Error ? error.message : "request failed"}`);
+    }
+  }
+
+  return check(
+    "flow:loan-application-tabs",
+    "三類貸款站內申請表單入口",
+    failures.length === 0,
+    failures.length
+      ? failures.slice(0, 12).join("；")
+      : "信貸、房貸、企業貸均預設顯示居中站內申請表；三類表單優先使用下拉欄位，且只有信貸收身分證正反面上傳",
+  );
+}
+
 async function checkOfficialApplyWarning(origin: string, db: Awaited<ReturnType<typeof readDB>>): Promise<LaunchCheck> {
   try {
     const response = await fetch(`${origin}/credit-loan`, { cache: "no-store" });
     const html = await response.text();
     if (!response.ok) {
-      return check("compliance:official-apply-warning", "銀行官方申請跳轉提示", false, `HTTP ${response.status}`);
+      return check("compliance:official-apply-warning", "信貸站內申請入口", false, `HTTP ${response.status}`);
     }
 
     const officialHref = db.settings.officialApplyUrl;
     const officialLinks = extractAnchorTags(html).filter((tag) => extractAttribute(tag, "href") === officialHref);
     const failures: string[] = [];
-    if (!officialLinks.length) {
-      failures.push("缺少銀行官方申請連結");
-    }
-
-    const validLink = officialLinks.find((tag) => {
-      const confirmMessage = extractAttribute(tag, "data-confirm-message");
-      return (
-        extractAttribute(tag, "target") === "_blank" &&
-        extractAttribute(tag, "data-event-name") === "official_apply_click" &&
-        confirmMessage.includes("即將前往銀行官方申請頁面") &&
-        confirmMessage.includes("以銀行為準") &&
-        confirmMessage.includes("是否繼續")
-      );
-    });
-    if (officialLinks.length && !validLink) {
-      failures.push("官方申請連結缺少新視窗、事件追蹤或跳轉前提示文案");
-    }
+    const creditApplyLink = extractAnchorTags(html).find((tag) => extractAttribute(tag, "href") === "#credit-apply" && extractAttribute(tag, "data-event-name") === "credit_form_click");
+    if (!creditApplyLink) failures.push("缺少信貸站內申請 CTA");
+    if (!html.includes("站內信貸網路申請")) failures.push("缺少站內信貸申請頁籤");
+    if (!html.includes("本站信貸申請只收身分證正反面")) failures.push("缺少信貸敏感資料最小化提醒");
+    if (officialLinks.length) failures.push("信貸頁仍含銀行外站官方申請主 CTA");
 
     return check(
       "compliance:official-apply-warning",
-      "銀行官方申請跳轉提示",
+      "信貸站內申請入口",
       failures.length === 0,
-      failures.length ? failures.join("；") : "銀行官方申請 CTA 會先顯示風險提示，並以新視窗開啟官方 HTTPS 連結",
+      failures.length ? failures.join("；") : "信貸主流程已回到站內申請，外站官方申請 CTA 未出現在前台主流程，且保留身分證 / LINE 補件邊界",
     );
   } catch (error) {
     return {
       id: "compliance:official-apply-warning",
-      label: "銀行官方申請跳轉提示",
+      label: "信貸站內申請入口",
       status: "fail",
       detail: error instanceof Error ? error.message : "request failed",
     };
@@ -1600,12 +1771,10 @@ async function checkExternalCtaReadiness(origin: string, db: Awaited<ReturnType<
   const settings = db.settings;
   const fbUrl = parseHref(origin, "/", settings.fbGroupUrl);
   const lineUrl = parseHref(origin, "/", settings.lineUrl);
-  const officialApplyUrl = parseHref(origin, "/", settings.officialApplyUrl);
 
   if (!fbUrl || !isFacebookUrl(fbUrl)) failures.push(`settings.fbGroupUrl 不是 HTTPS Facebook 連結：${settings.fbGroupUrl || "空值"}`);
   if (!lineUrl || !isLineUrl(lineUrl, origin)) failures.push(`settings.lineUrl 需為 LINE HTTPS 連結或 /contact#line-qr fallback：${settings.lineUrl || "空值"}`);
   if (lineUrl?.origin === origin && !settings.lineQrCodeUrl) failures.push("LINE fallback 使用聯絡頁時必須設定 lineQrCodeUrl");
-  if (!officialApplyUrl || !isOfficialApplyUrl(officialApplyUrl)) failures.push(`settings.officialApplyUrl 必須為 HTTPS：${settings.officialApplyUrl || "空值"}`);
 
   const ctaRequirements = [
     {
@@ -1622,11 +1791,6 @@ async function checkExternalCtaReadiness(origin: string, db: Awaited<ReturnType<
       path: "/credit-loan",
       label: "信貸 FB CTA",
       predicate: (url: URL) => isFacebookUrl(url) && hasSearchParam(url, "source_page", "credit"),
-    },
-    {
-      path: "/credit-loan",
-      label: "信貸銀行官方申請 CTA",
-      predicate: (url: URL) => Boolean(officialApplyUrl && url.href === officialApplyUrl.href),
     },
     {
       path: "/house-loan",
@@ -1688,7 +1852,7 @@ async function checkExternalCtaReadiness(origin: string, db: Awaited<ReturnType<
     failures.length === 0,
     failures.length
       ? failures.slice(0, 10).join("；")
-      : `LINE、FB、銀行官方申請入口均已設定並輸出來源參數；${samples.slice(0, 5).join("；")}`,
+      : `LINE、FB 與前台諮詢入口均已設定並輸出來源參數；${samples.slice(0, 5).join("；")}`,
   );
 }
 
@@ -2138,14 +2302,17 @@ export async function GET(request: Request) {
   const articleUrlSeoMetaCheck = await checkArticleUrlSeoMetadata(origin, db);
   const articleBottomCtaCheck = await checkArticleBottomCtas(origin, db);
   const sitemapCoverageCheck = await checkSitemapCoverage(origin, db);
+  const siteMapInformationArchitectureCheck = await checkSiteMapInformationArchitecture(origin);
   const materialChecks = await Promise.all(materialAssets.map((asset) => checkMaterialAsset(origin, asset.slug)));
   const internalLinkCheck = await checkInternalLinks(origin);
   const qaAnswerLinkCheck = await checkQaAnswerLinks(origin);
   const footerRiskLinkCheck = await checkFooterRiskLinks(origin);
+  const headerInformationArchitectureCheck = await checkHeaderInformationArchitecture(origin);
   const fullFooterEntrypointsCheck = await checkFullFooterEntrypoints(origin);
   const consentNoticeCheck = await checkConsentNotice(origin);
   const privacyRightsContactCheck = await checkPrivacyRightsContact(origin);
   const formDataMinimizationCheck = await checkFormDataMinimization(origin);
+  const loanApplicationTabReadinessCheck = await checkLoanApplicationTabReadiness(origin);
   const successPageContactCheck = await checkSuccessPageContact(origin, db);
   const brandAssetCheck = await checkBrandAndLineQrAssets(origin, db);
   const adminLoginBrandingCheck = await checkAdminLoginBranding(origin);
@@ -2157,7 +2324,7 @@ export async function GET(request: Request) {
   const financialDisclosureCheck = await checkFinancialDisclosures(origin);
   const csrfCheck = await checkCsrfProtection(origin, request.headers.get("cookie") || "");
   const leadAntiSpamCheck = await checkLeadAntiSpam(origin);
-  const checks = [...publicChecks, ...securityHeaderChecks, ...seoChecks, publicPageSeoMetaCheck, imageAltCheck, articleUrlSeoMetaCheck, articleBottomCtaCheck, sitemapCoverageCheck, ...materialChecks, internalLinkCheck, qaAnswerLinkCheck, footerRiskLinkCheck, fullFooterEntrypointsCheck, consentNoticeCheck, privacyRightsContactCheck, formDataMinimizationCheck, successPageContactCheck, brandAssetCheck, adminLoginBrandingCheck, officialApplyWarningCheck, externalCtaCheck, performanceCheck, assetBudgetCheck, copyComplianceCheck, financialDisclosureCheck, csrfCheck, leadAntiSpamCheck, ...envChecks, ...settingChecks, ...contentChecks, ...dataChecks, ...securityChecks];
+  const checks = [...publicChecks, ...securityHeaderChecks, ...seoChecks, publicPageSeoMetaCheck, imageAltCheck, articleUrlSeoMetaCheck, articleBottomCtaCheck, sitemapCoverageCheck, siteMapInformationArchitectureCheck, ...materialChecks, internalLinkCheck, qaAnswerLinkCheck, footerRiskLinkCheck, headerInformationArchitectureCheck, fullFooterEntrypointsCheck, consentNoticeCheck, privacyRightsContactCheck, formDataMinimizationCheck, loanApplicationTabReadinessCheck, successPageContactCheck, brandAssetCheck, adminLoginBrandingCheck, officialApplyWarningCheck, externalCtaCheck, performanceCheck, assetBudgetCheck, copyComplianceCheck, financialDisclosureCheck, csrfCheck, leadAntiSpamCheck, ...envChecks, ...settingChecks, ...contentChecks, ...dataChecks, ...securityChecks];
   const totals = checks.reduce(
     (acc, item) => {
       acc[item.status] += 1;

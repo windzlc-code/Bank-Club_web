@@ -56,6 +56,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
           </div>
           <div className="success-notice">
             <strong>補件提醒</strong>
+            <p>信用貸款只在專用模組收身分證正反面；財力證明、房貸權狀與企業報稅等敏感文件，請先透過 LINE 與專員確認補件方式。</p>
             {creditApplication ? (
               <p>身分證上傳狀態：{creditApplication.idUploadStatus}。財力證明請傳 LINE 給專員確認，不要再透過本站上傳薪轉、扣繳憑單或報稅資料。</p>
             ) : (

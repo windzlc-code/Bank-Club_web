@@ -117,6 +117,7 @@ const traditionalToSimplified: Record<string, string> = {
   確: "确",
   獲: "获",
   續: "续",
+  們: "们",
 };
 
 function toSimplified(value: string) {

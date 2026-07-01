@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { connection } from "next/server";
 import { EventLink } from "./EventLink";
-import { Icon } from "./Icons";
 import { LanguageToggle } from "./LanguageToggle";
 import { PageViewTracker } from "./PageViewTracker";
 import { PublicNav } from "./PublicNav";
@@ -13,11 +12,20 @@ import type { Article, SiteSettings } from "@/lib/types";
 
 const nav = [
   { label: "首頁", href: "/" },
-  { label: "信用貸款", href: "/credit-loan" },
-  { label: "房屋貸款", href: "/house-loan" },
-  { label: "企業貸款", href: "/business-loan" },
-  { label: "申辦流程", href: "/application-flow" },
-  { label: "常見QA", href: "/qa" },
+  {
+    label: "貸款服務",
+    href: "/#loan-services",
+    children: [
+      { label: "信用貸款", href: "/credit-loan" },
+      { label: "房屋貸款", href: "/house-loan" },
+      { label: "企業貸款", href: "/business-loan" },
+    ],
+  },
+  { label: "申請流程教學", href: "/application-flow" },
+  { label: "銀行資格與文件總整理", href: "/documents" },
+  { label: "常見 QA", href: "/qa" },
+  { label: "免費諮詢預約", href: "/consultation" },
+  { label: "FB 銀行俱樂部社團", href: "/facebook" },
 ];
 
 export function Header({ settings }: { settings: SiteSettings }) {
@@ -30,11 +38,8 @@ export function Header({ settings }: { settings: SiteSettings }) {
       </Link>
       <PublicNav items={nav} />
       <div className="header-actions">
-        <EventLink className="icon-btn" href="/blog#article-search" eventName="header_search_click" metadata={{ sourcePage: "header", destination: "/blog#article-search" }} ariaLabel="搜尋文章">
-          <Icon name="search" />
-        </EventLink>
         <LanguageToggle />
-        <EventLink className="line-btn" href={headerLineHref} eventName="header_line_click" target={headerLineHref.startsWith("http") ? "_blank" : undefined}>
+        <EventLink className="line-btn" href={headerLineHref} eventName="header_line_click" target={headerLineHref.startsWith("http") ? "_blank" : undefined} ariaLabel="聯絡我們 / LINE 諮詢">
           <span className="line-dot">LINE</span>
           LINE諮詢
         </EventLink>
@@ -102,12 +107,12 @@ export function Footer({
             <Link href="/credit-loan">信用貸款</Link>
             <Link href="/house-loan">房屋貸款</Link>
             <Link href="/business-loan">企業貸款</Link>
-            <Link href="/documents">文件總整理</Link>
+            <Link href="/documents">銀行資格與文件總整理</Link>
             <Link href="/facebook">FB 社團頁</Link>
             <Link href="/contact">LINE / 聯絡我們</Link>
-            <Link href="/privacy">個資保護</Link>
+            <Link href="/privacy">個資保護聲明</Link>
             <Link href="/risk">風險聲明</Link>
-            <Link href="/terms">服務條款</Link>
+            <Link href="/terms">免責 / 服務條款</Link>
             <Link href="/site-map">網站地圖</Link>
             <Link href="/admin">後台管理</Link>
           </div>

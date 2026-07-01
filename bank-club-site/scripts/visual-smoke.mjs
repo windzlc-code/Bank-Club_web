@@ -79,24 +79,23 @@ const subpageSmokeCases = [
     name: "credit-loan",
     path: "/credit-loan",
     navLabel: "信用貸款",
-    requiredTexts: ["信用貸款", "適合對象與資格", "方案、利率與費用揭露", "總費用年百分率不等於貸款利率", "網路申請 SOP", "每月約", "總還款約", "信貸常見問題"],
-    selectors: [".page-hero", ".financial-disclosure", ".content-section", ".calculator", ".faq-list"],
-    calculator: true,
+    requiredTexts: ["信用貸款", "方案、利率與費用揭露", "總費用年百分率不等於貸款利率", "站內信貸網路申請", "身分證正面", "身分證反面", "財力證明請傳 LINE", "信貸常見問題"],
+    selectors: [".page-hero", ".financial-disclosure", ".loan-tabs", "#credit-application", ".lead-form", ".faq-list"],
   },
   {
     name: "house-loan",
     path: "/house-loan",
     navLabel: "房屋貸款",
-    requiredTexts: ["房屋貸款", "方案、利率與費用揭露", "總費用年百分率不等於貸款利率", "鑑價到撥款流程", "房貸月付試算", "總還款約", "房屋資料諮詢表"],
-    selectors: [".page-hero", ".card-grid", ".financial-disclosure", ".line-property-form", ".calculator", ".lead-form"],
+    requiredTexts: ["房屋貸款", "方案、利率與費用揭露", "總費用年百分率不等於貸款利率", "房屋貸款申請表", "房貸類型", "房屋縣市", "房貸月付試算", "總還款約"],
+    selectors: [".page-hero", ".financial-disclosure", ".loan-tabs", "#house-application", ".calculator", ".lead-form"],
     calculator: true,
   },
   {
     name: "business-loan",
     path: "/business-loan",
     navLabel: "企業貸款",
-    requiredTexts: ["企業貸款", "產品分類", "申請文件", "方案、利率與費用揭露", "總費用年百分率不等於貸款利率", "審核重點與常見驳件原因"],
-    selectors: [".page-hero", ".two-col", ".financial-disclosure", ".content-section", ".lead-form"],
+    requiredTexts: ["企業貸款", "方案、利率與費用揭露", "總費用年百分率不等於貸款利率", "企業貸款申請表", "企業貸款類型", "公司 / 商號名稱", "報稅資料、存摺、執照"],
+    selectors: [".page-hero", ".financial-disclosure", ".loan-tabs", "#business-application", ".lead-form"],
   },
   {
     name: "application-flow",
@@ -510,35 +509,16 @@ async function assertSubpage(page, viewportName, smokeCase) {
   if (issues.length) fail(`${smokeCase.name} ${viewportName}: layout smoke failed`, issues.slice(0, 20));
 }
 
-async function assertOfficialApplyWarning(page) {
+async function assertCreditApplicationMainFlow(page) {
   await page.goto(`${baseUrl}/credit-loan`, { waitUntil: "networkidle" });
-  const officialApplyLink = page.getByRole("link", { name: /銀行官方申請頁面/ });
-  if ((await officialApplyLink.count()) !== 1) fail("credit: expected one official apply link");
-
-  let confirmText = "";
-  page.once("dialog", async (dialog) => {
-    confirmText = dialog.message();
-    await dialog.dismiss();
-  });
-  await officialApplyLink.click();
-  if (!confirmText.includes("即將前往銀行官方申請頁面") || !confirmText.includes("以銀行為準")) {
-    fail(`credit: official apply warning text mismatch: ${confirmText}`);
-  }
-  if (page.url() !== `${baseUrl}/credit-loan`) {
-    fail(`credit: dismissed official warning should stay on page, got ${page.url()}`);
-  }
-
-  const popupPromise = page.waitForEvent("popup", { timeout: 5000 });
-  page.once("dialog", async (dialog) => {
-    await dialog.accept();
-  });
-  await officialApplyLink.click();
-  const popup = await popupPromise;
-  const popupUrl = popup.url();
-  await popup.close();
-  if (!/^https:\/\/www\.feib\.com\.tw\//.test(popupUrl)) {
-    fail(`credit: accepted official warning opened unexpected URL: ${popupUrl}`);
-  }
+  const officialApplyLink = page.getByRole("link", { name: /銀行官方申請頁面|官方申請頁面|我要申請/ });
+  if ((await officialApplyLink.count()) !== 0) fail("credit: official bank apply link should not appear in the main public flow");
+  const activeTab = await page.locator(".loan-tabs").getAttribute("data-active-tab");
+  if (activeTab !== "credit-apply") fail(`credit: expected default active tab credit-apply, got ${activeTab || "missing"}`);
+  if ((await page.locator("#credit-application form.lead-form").count()) !== 1) fail("credit: missing centered in-site application form");
+  if ((await page.locator('#credit-application input[type="file"][name="idFront"]').count()) !== 1) fail("credit: missing ID front upload");
+  if ((await page.locator('#credit-application input[type="file"][name="idBack"]').count()) !== 1) fail("credit: missing ID back upload");
+  if ((await page.locator("#credit-application", { hasText: "財力證明請傳 LINE" }).count()) !== 1) fail("credit: missing LINE supplement reminder");
 }
 
 await mkdir(artifactDir, { recursive: true });
@@ -554,7 +534,7 @@ try {
     await page.close();
   }
   const page = await browser.newPage({ viewport: viewports[0] });
-  await assertOfficialApplyWarning(page);
+  await assertCreditApplicationMainFlow(page);
   await page.close();
   console.log(`visual smoke passed for ${baseUrl}`);
   console.log(`screenshots: ${artifactDir}`);

@@ -23,6 +23,50 @@ type CreditUploadState = {
 
 const allowedCreditFileTypes = new Set(["image/jpeg", "image/png", "image/heic", "image/heif"]);
 const creditFileMaxBytes = 8 * 1024 * 1024;
+const taiwanCities = ["台北市", "新北市", "桃園市", "台中市", "台南市", "高雄市", "基隆市", "新竹市", "新竹縣", "苗栗縣", "彰化縣", "南投縣", "雲林縣", "嘉義市", "嘉義縣", "屏東縣", "宜蘭縣", "花蓮縣", "台東縣", "澎湖縣", "金門縣", "連江縣"];
+
+function amountOptionsFor(loanType: LoanType) {
+  if (loanType === "credit") {
+    return [
+      ["300000", "30 萬"],
+      ["500000", "50 萬"],
+      ["800000", "80 萬"],
+      ["1000000", "100 萬"],
+      ["2000000", "200 萬"],
+      ["3000000", "300 萬"],
+      ["5000000", "500 萬"],
+      ["7000000", "700 萬"],
+    ];
+  }
+  if (loanType === "house") {
+    return [
+      ["500000", "50 萬"],
+      ["1000000", "100 萬"],
+      ["1800000", "180 萬"],
+      ["3000000", "300 萬"],
+      ["5000000", "500 萬"],
+      ["8000000", "800 萬"],
+      ["10000000", "1,000 萬以上"],
+    ];
+  }
+  if (loanType === "business") {
+    return [
+      ["300000", "30 萬"],
+      ["500000", "50 萬"],
+      ["800000", "80 萬"],
+      ["1000000", "100 萬"],
+      ["2000000", "200 萬"],
+      ["5000000", "500 萬"],
+      ["10000000", "1,000 萬以上"],
+    ];
+  }
+  return [
+    ["300000", "30 萬"],
+    ["500000", "50 萬"],
+    ["1000000", "100 萬"],
+    ["3000000", "300 萬以上"],
+  ];
+}
 
 function sourceFromReferrer(referrer: string) {
   if (!referrer) return "direct";
@@ -241,7 +285,14 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
         </label>
         <label>
           期望金額
-          <input name="desiredAmount" placeholder="可留空，或填預估金額" inputMode="numeric" />
+          <select name="desiredAmount" defaultValue={loanType === "credit" ? "7000000" : ""}>
+            <option value="">尚不確定，先諮詢</option>
+            {amountOptionsFor(loanType).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           預約時段
@@ -271,7 +322,13 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
           <div className="field-grid">
             <label>
               申請金額
-              <input name="requestedAmount" defaultValue="7000000" required inputMode="numeric" />
+              <select name="requestedAmount" required defaultValue="7000000">
+                {amountOptionsFor("credit").map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               申請年限
@@ -326,7 +383,14 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
             <label>
               房屋縣市
-              <input name="propertyCity" required placeholder="例如：新北市" />
+              <select name="propertyCity" required defaultValue="">
+                <option value="" disabled>請選擇</option>
+                {taiwanCities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               房屋區域
@@ -383,7 +447,14 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
             <label>
               期望貸款年限
-              <input name="requestedTermYears" placeholder="例如：20" inputMode="numeric" />
+              <select name="requestedTermYears" defaultValue="">
+                <option value="">尚不確定</option>
+                <option value="5">5 年</option>
+                <option value="10">10 年</option>
+                <option value="15">15 年</option>
+                <option value="20">20 年</option>
+                <option value="30">30 年</option>
+              </select>
             </label>
             <label>
               是否需要寬限期
@@ -429,19 +500,48 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
             <label>
               產業類別
-              <input name="industry" placeholder="例如：餐飲、工程、批發零售" />
+              <select name="industry" defaultValue="">
+                <option value="">尚不確定</option>
+                <option value="餐飲">餐飲</option>
+                <option value="批發零售">批發零售</option>
+                <option value="工程營造">工程營造</option>
+                <option value="製造加工">製造加工</option>
+                <option value="專業服務">專業服務</option>
+                <option value="其他">其他</option>
+              </select>
             </label>
             <label>
               營業年數
-              <input name="operatingYears" required placeholder="例如：3" inputMode="decimal" />
+              <select name="operatingYears" required defaultValue="">
+                <option value="" disabled>請選擇</option>
+                <option value="0.5">未滿 1 年</option>
+                <option value="1">1 年</option>
+                <option value="3">3 年</option>
+                <option value="5">5 年</option>
+                <option value="10">10 年以上</option>
+              </select>
             </label>
             <label>
               員工人數
-              <input name="employeeCount" placeholder="可留空" inputMode="numeric" />
+              <select name="employeeCount" defaultValue="">
+                <option value="">尚不確定</option>
+                <option value="1">1 人</option>
+                <option value="5">2 到 5 人</option>
+                <option value="10">6 到 10 人</option>
+                <option value="30">11 到 30 人</option>
+                <option value="100">31 人以上</option>
+              </select>
             </label>
             <label>
               企業所在地
-              <input name="businessLocation" required placeholder="例如：新北市中和區" />
+              <select name="businessLocation" required defaultValue="">
+                <option value="" disabled>請選擇</option>
+                {taiwanCities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               近一年營業額區間
@@ -465,7 +565,14 @@ export function ConsultationForm({ defaultLoanType = "unknown", defaultIdentityT
             </label>
             <label>
               期望還款年限
-              <input name="requestedTermYears" placeholder="例如：5" inputMode="numeric" />
+              <select name="requestedTermYears" defaultValue="">
+                <option value="">尚不確定</option>
+                <option value="1">1 年</option>
+                <option value="3">3 年</option>
+                <option value="5">5 年</option>
+                <option value="7">7 年</option>
+                <option value="10">10 年</option>
+              </select>
             </label>
             <label>
               是否有抵押品

@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
-import { readDbJson, readDbSnapshot, writeDbSnapshot } from "./db-file-lock.mjs";
+import { readDbSnapshot, writeDbSnapshot } from "./db-file-lock.mjs";
 
 const baseUrl = process.env.BASE_URL || "http://127.0.0.1:3000";
 const dbPath = path.join(process.cwd(), ".data", "bank-club-db.json");
@@ -10,11 +10,30 @@ const screenshotDir = process.env.NAV_SMOKE_SCREENSHOT_DIR || "/tmp/bank-club-na
 
 const navCases = [
   { path: "/", activeLabel: "首頁" },
-  { path: "/credit-loan", activeLabel: "信用貸款" },
-  { path: "/house-loan", activeLabel: "房屋貸款" },
-  { path: "/business-loan", activeLabel: "企業貸款" },
-  { path: "/application-flow", activeLabel: "申辦流程" },
-  { path: "/qa", activeLabel: "常見QA" },
+  { path: "/credit-loan", activeLabel: "貸款服務" },
+  { path: "/house-loan", activeLabel: "貸款服務" },
+  { path: "/business-loan", activeLabel: "貸款服務" },
+  { path: "/application-flow", activeLabel: "申請流程教學" },
+  { path: "/documents", activeLabel: "銀行資格與文件總整理" },
+  { path: "/qa", activeLabel: "常見 QA" },
+  { path: "/consultation", activeLabel: "免費諮詢預約" },
+  { path: "/facebook", activeLabel: "FB 銀行俱樂部社團" },
+];
+
+const expectedDesktopNavLabels = [
+  "首頁",
+  "貸款服務",
+  "申請流程教學",
+  "銀行資格與文件總整理",
+  "常見 QA",
+  "免費諮詢預約",
+  "FB 銀行俱樂部社團",
+];
+
+const expectedLoanDropdownLabels = [
+  "信用貸款",
+  "房屋貸款",
+  "企業貸款",
 ];
 
 function fail(message, details = []) {
@@ -39,16 +58,6 @@ async function assertNoHorizontalOverflow(page, label) {
   if (overflow > 1) fail(`${label}: horizontal overflow ${overflow}px`);
 }
 
-async function waitForDb(predicate, description) {
-  const deadline = Date.now() + 8000;
-  while (Date.now() < deadline) {
-    const db = await readDbJson(dbPath);
-    if (predicate(db)) return db;
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  fail(`timed out waiting for database state: ${description}`);
-}
-
 async function run() {
   const backup = keepData ? null : await readDbSnapshot(dbPath);
   await mkdir(screenshotDir, { recursive: true });
@@ -63,6 +72,10 @@ async function run() {
   });
 
   try {
+    await page.goto(`${baseUrl}/`, { waitUntil: "load" });
+    await page.evaluate(() => {
+      window.localStorage.setItem("bank_club_language", "zh-TW");
+    });
     for (const item of navCases) {
       await page.goto(`${baseUrl}${item.path}`, { waitUntil: "load" });
       await assertNoFrameworkOverlay(page, item.path);
@@ -77,46 +90,36 @@ async function run() {
     }
 
     const desktopNavLabels = (await page.locator(".main-nav > a, .main-nav > details > summary").allInnerTexts()).map((label) => label.trim());
-    const expectedDesktopNavLabels = ["首頁", "信用貸款", "房屋貸款", "企業貸款", "申辦流程", "常見QA"];
     if (desktopNavLabels.join("|") !== expectedDesktopNavLabels.join("|")) {
-      fail(`desktop header nav should match reference labels, got ${desktopNavLabels.join(", ")}`);
+      fail(`desktop header should show 7 text entries plus loan dropdown, got ${desktopNavLabels.join(", ")}`);
     }
-    if ((await page.locator(".main-nav details").count()) !== 0) {
-      fail("desktop header should match reference direct-keyword nav without dropdown groups");
+    if ((await page.locator(".main-nav details").count()) !== 1) {
+      fail("desktop header should render exactly one loan service dropdown");
+    }
+    const loanDropdownLabels = await page.locator(".main-nav .nav-menu a").evaluateAll((items) => items.map((item) => item.textContent?.trim() || ""));
+    if (loanDropdownLabels.join("|") !== expectedLoanDropdownLabels.join("|")) {
+      fail(`loan service dropdown should contain the three loan pages, got ${loanDropdownLabels.join(", ")}`);
+    }
+    if ((await page.locator(".site-header .icon-btn").count()) !== 0) {
+      fail("document 4.1 header should not render extra search button");
     }
 
-    const searchSessionId = `nav-search-${Date.now()}`;
-    await page.goto(`${baseUrl}/`, { waitUntil: "load" });
-    await page.evaluate((value) => {
-      window.localStorage.setItem("bank_club_tracking_session_id", value);
-    }, searchSessionId);
-    await page.getByRole("link", { name: "搜尋文章" }).click();
-    await page.waitForURL(/\/blog#article-search$/, { timeout: 8000 });
-    await waitForDb(
-      (db) => db.events.some((event) =>
-        event.eventName === "header_search_click" &&
-        event.sessionId === searchSessionId &&
-        event.pagePath === "/" &&
-        event.metadata?.sourcePage === "header",
-      ),
-      "header search click stored with session/source metadata",
-    );
-
-    await page.goto(`${baseUrl}/blog?q=${encodeURIComponent("財力")}`, { waitUntil: "load" });
+    await page.goto(`${baseUrl}/blog?q=${encodeURIComponent("財力")}`, { waitUntil: "networkidle" });
     await assertNoFrameworkOverlay(page, "/blog search");
     const blogActiveLabels = (await activeNavLabels(page)).map((label) => label.trim());
     if (blogActiveLabels.length !== 0) {
       fail(`/blog should not highlight a top-level reference nav label, got ${blogActiveLabels.join(", ")}`);
     }
 
-    const headerLineHref = await page.getByRole("link", { name: "LINE諮詢" }).first().getAttribute("href");
+    const headerLineHref = await page.getByRole("link", { name: "聯絡我們 / LINE 諮詢" }).first().getAttribute("href");
     if (!headerLineHref?.includes("source_page=header") || !headerLineHref?.includes("utm_medium=line_cta")) {
-      fail(`header LINE CTA missing tracking params: ${headerLineHref || "missing"}`);
-    }
-    if ((await page.locator(".main-nav > a").filter({ hasText: "FB社團" }).count()) !== 0) {
-      fail("desktop header should not render FB社團 as a top-level nav entry");
+      fail(`gold contact/LINE button should keep header LINE tracking params, got ${headerLineHref || "missing"}`);
     }
 
+    await page.goto(`${baseUrl}/`, { waitUntil: "load" });
+    await page.evaluate(() => {
+      window.localStorage.setItem("bank_club_language", "zh-TW");
+    });
     await page.goto(`${baseUrl}/application-flow`, { waitUntil: "load" });
     await page.getByRole("button", { name: "切換簡體中文" }).click();
     await page.waitForFunction(() => document.documentElement.lang === "zh-Hans");
@@ -125,8 +128,8 @@ async function run() {
       fail(`language toggle should set lang=zh-CN in URL, got ${page.url()}`);
     }
     const simplifiedBrand = (await page.locator(".brand span").textContent())?.trim();
-    const simplifiedNav = (await page.locator(".main-nav > a").nth(4).textContent())?.trim();
-    if (simplifiedBrand !== "银行俱乐部" || simplifiedNav !== "申办流程") {
+    const simplifiedNav = (await page.locator(".main-nav > a").nth(1).textContent())?.trim();
+    if (simplifiedBrand !== "银行俱乐部" || simplifiedNav !== "申请流程教学") {
       fail(`language toggle should simplify visible header text, got brand=${simplifiedBrand}, nav=${simplifiedNav}`);
     }
     await page.getByRole("button", { name: "切換繁體中文" }).click();
@@ -136,16 +139,19 @@ async function run() {
       fail(`language toggle should restore traditional header text, got ${traditionalBrand}`);
     }
 
-    await page.goto(`${baseUrl}/blog?q=${encodeURIComponent("財力")}`, { waitUntil: "load" });
+    await page.goto(`${baseUrl}/blog?q=${encodeURIComponent("財力")}`, { waitUntil: "networkidle" });
     await page.screenshot({ path: path.join(screenshotDir, "blog-no-home-active.png"), fullPage: false });
 
     await page.setViewportSize({ width: 390, height: 900 });
-    await page.goto(`${baseUrl}/contact`, { waitUntil: "load" });
+    await page.goto(`${baseUrl}/contact`, { waitUntil: "networkidle" });
     await assertNoFrameworkOverlay(page, "/contact mobile");
     await assertNoHorizontalOverflow(page, "/contact mobile");
     const mobileNavLinks = (await page.locator(".main-nav > a, .main-nav > details > summary").allInnerTexts()).map((label) => label.trim());
     if (mobileNavLinks.join("|") !== expectedDesktopNavLabels.join("|")) {
       fail(`/contact mobile: header nav should match reference labels, got ${mobileNavLinks.join(", ")}`);
+    }
+    if ((await page.locator(".site-header .line-btn").count()) !== 1) {
+      fail("/contact mobile: gold contact/LINE button should remain in header");
     }
     await page.screenshot({ path: path.join(screenshotDir, "contact-mobile-header.png"), fullPage: false });
 
@@ -161,14 +167,15 @@ async function run() {
       baseUrl,
       checks: [
         "home highlights only 首頁",
-        "credit page highlights only 信用貸款",
-        "house page highlights only 房屋貸款",
-        "business page highlights only 企業貸款",
-        "application flow highlights only 申辦流程",
-        "QA page highlights only 常見QA",
-        "header LINE CTA carries source tracking params",
-        "desktop header matches reference direct-keyword nav",
-        "header search icon navigates to article search and stores header_search_click",
+        "credit page highlights 貸款服務 parent",
+        "house page highlights 貸款服務 parent",
+        "business page highlights 貸款服務 parent",
+        "application flow highlights only 申請流程教學",
+        "documents highlights only 銀行資格與文件總整理",
+        "QA page highlights only 常見 QA",
+        "consultation and FB entries follow document 4.1",
+        "desktop header shows 7 text entries, one loan dropdown, and one gold contact/LINE button",
+        "loan dropdown contains 信用貸款 / 房屋貸款 / 企業貸款",
         "language globe toggles simplified/traditional text and URL state",
         "mobile header has no horizontal overflow",
         "blog does not highlight an unrelated top-level nav item",

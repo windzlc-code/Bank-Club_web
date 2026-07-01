@@ -19,7 +19,7 @@ const serviceLinks = [
 ];
 
 const workflowLinks = [
-  { href: "/application-flow", label: "申辦流程教學", note: "線上申請、文件拍攝、頁面當機與等待審核" },
+  { href: "/application-flow", label: "申請流程教學", note: "線上申請、文件拍攝、頁面當機與等待審核" },
   { href: "/documents", label: "銀行資格與文件總整理", note: "信貸、房貸、企業貸文件比較與下載" },
   { href: "/qa", label: "常見 QA", note: "平台身份、核貸限制、用途風險與文件問題" },
   { href: "/consultation", label: "免費諮詢預約", note: "留下需求並由專員跟進" },
@@ -33,6 +33,15 @@ const legalLinks = [
   { href: "/terms", label: "服務條款" },
   { href: "/sitemap.xml", label: "XML Sitemap" },
   { href: "/robots.txt", label: "Robots.txt" },
+];
+
+const adminLinks = [
+  { href: "/admin", label: "後台登入頁", note: "獨立後台入口，登入後進入管理儀表板" },
+  { href: "/admin", label: "後台儀表板", note: "總線索、新線索、文章、文件與營運摘要" },
+  { href: "/admin", label: "後台線索管理頁", note: "線索列表、線索詳情、狀態與跟進紀錄" },
+  { href: "/admin", label: "後台文章管理頁", note: "部落格文章、SEO、FB 摘要與發布流程" },
+  { href: "/admin", label: "後台文件資源管理頁", note: "公開文件、版本、下載統計與敏感內容邊界" },
+  { href: "/admin", label: "後台統計頁", note: "頁面瀏覽、表單提交、LINE 點擊與來源轉化" },
 ];
 
 function LinkGroup({
@@ -86,6 +95,7 @@ export default async function SiteMapPage() {
         <LinkGroup title="流程、文件與諮詢入口" items={workflowLinks} />
         <LinkGroup title="貸款知識文章" items={[{ href: "/blog", label: "部落格文章列表", note: "首批 SEO 文章與 FB 社團導流內容" }, ...articleLinks]} />
         <LinkGroup title="公開文件下載" items={fileLinks} />
+        <LinkGroup title="後台管理" items={adminLinks} />
         <LinkGroup title="法務、SEO 與技術入口" items={legalLinks} />
         <BreadcrumbJsonLd current="網站地圖" path="/site-map" />
       </main>

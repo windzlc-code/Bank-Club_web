@@ -20,7 +20,7 @@ export default async function Home() {
   const { settings } = await readDB();
   const homeLineHref = lineHref(settings.lineUrl, { sourcePage: "home_contact_strip" });
   return (
-    <PublicShell footerVariant="reference">
+    <PublicShell>
       <main>
         <section className="hero">
           <div className="hero-content">
@@ -52,7 +52,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="service-rail" aria-label="三大貸款服務">
+        <section className="service-rail" id="loan-services" aria-label="三大貸款服務">
           {serviceCards.map((card) => (
             <EventLink
               className="service-panel"

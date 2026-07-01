@@ -66,11 +66,11 @@ svg {
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 2px 18px rgba(22, 35, 52, 0.09);
   display: flex;
-  gap: 18px;
+  gap: clamp(12px, 1.4vw, 18px);
   height: 80px;
   justify-content: space-between;
   left: 0;
-  padding: 0 clamp(40px, 4.7vw, 60px);
+  padding: 0 clamp(24px, 3.5vw, 52px);
   position: sticky;
   right: 0;
   top: 0;
@@ -94,7 +94,7 @@ svg {
   align-items: center;
   display: flex;
   flex: 1 1 auto;
-  gap: clamp(24px, 3vw, 46px);
+  gap: clamp(13px, 1.45vw, 24px);
   justify-content: center;
   min-width: 0;
 }
@@ -103,7 +103,7 @@ svg {
 .main-nav summary {
   color: #172334;
   flex: 0 0 auto;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
   list-style: none;
@@ -419,7 +419,8 @@ svg {
 
 .service-panel h2,
 .entry-card h3,
-.small-card h2 {
+.small-card h2,
+.small-card h3 {
   color: #172334;
   font-size: 22px;
   font-weight: 900;
@@ -811,6 +812,68 @@ svg {
   margin: 0;
 }
 
+.loan-tabs {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 24px 0 34px;
+  overflow: hidden;
+}
+
+.loan-tab-list {
+  background: #f7f8f4;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.loan-tab-list button {
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--line);
+  color: #52606f;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  min-height: 58px;
+  padding: 14px 18px;
+}
+
+.loan-tab-list button:last-child {
+  border-right: 0;
+}
+
+.loan-tab-list button.active {
+  background: #fff;
+  color: var(--green);
+  box-shadow: inset 0 -3px 0 var(--gold);
+}
+
+.loan-tab-panel {
+  padding: 30px;
+}
+
+.loan-tab-panel .section-heading {
+  margin-bottom: 22px;
+}
+
+.loan-tab-panel .section-heading p {
+  margin-bottom: 0;
+}
+
+.loan-tab-grid,
+.compact-steps {
+  margin-top: 0;
+}
+
+.compact-steps {
+  background: #fffdf8;
+  border: 1px solid #ead9a9;
+  border-radius: 8px;
+  padding: 24px 24px 24px 48px;
+}
+
 .contact-card {
   display: grid;
   gap: 12px;
@@ -1013,6 +1076,25 @@ textarea {
 .lead-form {
   display: grid;
   gap: 18px;
+}
+
+.loan-application-card {
+  margin: 0 auto;
+  max-width: 920px;
+  width: 100%;
+}
+
+.loan-application-card .lead-form {
+  background: #fff;
+  border: 1px solid #e3dfd3;
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(22, 35, 52, 0.08);
+  padding: clamp(20px, 3vw, 34px);
+}
+
+.loan-application-card .form-submit {
+  justify-self: center;
+  min-width: min(100%, 260px);
 }
 
 .line-property-form {
@@ -2173,6 +2255,41 @@ summary,
   margin: 0;
 }
 
+@media (max-width: 1350px) {
+  .site-header {
+    align-items: flex-start;
+    flex-direction: column;
+    height: auto;
+    overflow: hidden;
+    padding: 16px clamp(24px, 4vw, 40px);
+  }
+
+  .main-nav {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .main-nav a,
+  .main-nav summary {
+    padding: 5px 0 9px;
+  }
+
+  .header-actions {
+    align-self: flex-end;
+    width: auto;
+  }
+}
+
 @media (max-width: 900px) {
   html {
     overflow-x: hidden;
@@ -2192,15 +2309,23 @@ summary,
 
   .main-nav {
     justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 10px 16px;
+    flex-wrap: nowrap;
+    gap: 18px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
     width: 100%;
+    -webkit-overflow-scrolling: touch;
   }
 
   .main-nav a,
   .main-nav summary {
     font-size: 15px;
     padding: 5px 0 9px;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .main-nav a.active::after,
@@ -2279,7 +2404,8 @@ summary,
   }
 
   .header-actions {
-    width: 100%;
+    align-self: flex-end;
+    width: auto;
   }
 
   .hero {
@@ -2300,6 +2426,22 @@ summary,
     flex: 1 1 150px;
     min-width: 0;
     padding: 0 16px;
+  }
+
+  .loan-tab-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .loan-tab-list button:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .loan-tab-panel {
+    padding: 22px;
+  }
+
+  .compact-steps {
+    padding: 20px 20px 20px 42px;
   }
 
   .advisor,
@@ -2324,6 +2466,14 @@ summary,
     padding: 18px 20px 16px;
   }
 
+  .loan-tab-list {
+    grid-template-columns: 1fr;
+  }
+
+  .loan-tab-list button {
+    border-right: 0;
+  }
+
   .brand {
     font-size: 25px;
     width: 100%;
@@ -2335,17 +2485,25 @@ summary,
   }
 
   .main-nav {
-    display: grid;
-    gap: 8px 12px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   .main-nav a,
   .main-nav summary {
     font-size: 14px;
     line-height: 1.25;
-    padding: 4px 0 9px;
+    padding: 4px 0 8px;
     white-space: nowrap;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .main-nav summary {
@@ -2353,7 +2511,7 @@ summary,
   }
 
   .main-nav .nav-group[open] {
-    grid-column: 1 / -1;
+    flex: 0 0 auto;
   }
 
   .main-nav .nav-group[open] summary {
@@ -2371,9 +2529,8 @@ summary,
   }
 
   .header-actions {
-    display: grid;
+    display: flex;
     gap: 12px;
-    grid-template-columns: 42px 54px minmax(0, 1fr);
   }
 
   .line-btn,
