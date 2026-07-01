@@ -479,6 +479,22 @@ async function run() {
     const detail = await fetchJson(`/api/admin/leads/${leadId}`, { headers });
     if (!detail.response.ok) fail(`admin lead detail failed HTTP ${detail.response.status}`);
     const lead = detail.json.lead;
+    if (!detail.json.businessLoanApplication?.applicationNo?.startsWith("BU")) {
+      fail("business lead detail should include business loan application");
+    }
+    const businessLineStatusUpdate = await fetchJson(`/api/admin/leads/${leadId}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ businessDocumentLineStatus: "line_received" }),
+    });
+    if (
+      !businessLineStatusUpdate.response.ok ||
+      businessLineStatusUpdate.json.businessLoanApplication?.documentLineStatus !== "line_received" ||
+      businessLineStatusUpdate.json.lead?.documentStatus !== "received" ||
+      businessLineStatusUpdate.json.lead?.status !== "documents_received"
+    ) {
+      fail(`business LINE document status update failed HTTP ${businessLineStatusUpdate.response.status}: ${businessLineStatusUpdate.json.message || ""}`);
+    }
 
     const list = await fetchJson("/api/admin/leads?loanType=business&sourceChannel=facebook", { headers });
     if (!list.response.ok) fail(`admin lead list failed HTTP ${list.response.status}`);
@@ -597,6 +613,22 @@ async function run() {
     const houseDetail = await fetchJson(`/api/admin/leads/${houseLeadId}`, { headers });
     if (!houseDetail.response.ok) fail(`admin house lead detail failed HTTP ${houseDetail.response.status}`);
     const houseLead = houseDetail.json.lead;
+    if (!houseDetail.json.houseLoanApplication?.applicationNo?.startsWith("HO")) {
+      fail("house lead detail should include house loan application");
+    }
+    const houseLineStatusUpdate = await fetchJson(`/api/admin/leads/${houseLeadId}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ houseDocumentLineStatus: "pending_documents" }),
+    });
+    if (
+      !houseLineStatusUpdate.response.ok ||
+      houseLineStatusUpdate.json.houseLoanApplication?.documentLineStatus !== "pending_documents" ||
+      houseLineStatusUpdate.json.lead?.documentStatus !== "incomplete" ||
+      houseLineStatusUpdate.json.lead?.status !== "pending_documents"
+    ) {
+      fail(`house LINE document status update failed HTTP ${houseLineStatusUpdate.response.status}: ${houseLineStatusUpdate.json.message || ""}`);
+    }
     const houseExpectedFields = {
       name: houseLeadName,
       phone: houseStoredPhone,
@@ -785,6 +817,12 @@ async function run() {
     if (!db.auditLogs.some((log) => log.action === "lead_created" && log.targetId === houseLeadId)) {
       fail("house page form submission did not write lead_created audit log");
     }
+    if (!db.auditLogs.some((log) => log.action === "business_line_documents_updated" && log.targetType === "business_loan_application")) {
+      fail("business LINE document status update did not write audit log");
+    }
+    if (!db.auditLogs.some((log) => log.action === "house_line_documents_updated" && log.targetType === "house_loan_application")) {
+      fail("house LINE document status update did not write audit log");
+    }
 
     console.log(JSON.stringify({
       browserPath: "Repository Playwright form smoke",
@@ -806,6 +844,7 @@ async function run() {
         companyName: lead.companyName,
         monthlyRevenue: lead.monthlyRevenue,
         leadPriority: lead.leadPriority,
+        documentLineStatus: businessLineStatusUpdate.json.businessLoanApplication.documentLineStatus,
       },
       houseFields: {
         identityType: houseLead.identityType,
@@ -815,6 +854,7 @@ async function run() {
         existingMortgage: houseLead.existingMortgage,
         maskedListPhone: listedHouseLead.phone,
         leadPriority: houseLead.leadPriority,
+        documentLineStatus: houseLineStatusUpdate.json.houseLoanApplication.documentLineStatus,
       },
       crmCtaFlags: {
         hasClickedLine: lead.hasClickedLine,

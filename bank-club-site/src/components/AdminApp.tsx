@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFbPostText } from "@/lib/fb-posts";
 import { allowedPublicResourceExtensions, maxPublicResourceUploadBytes } from "@/lib/file-resource-policy";
 import { identityLabels, loanLabels, statusLabels } from "@/lib/site-data";
-import type { Article, ArticleCategory, ArticleComplianceFlags, AuditLog, BusinessLoanApplication, CreditApplication, CreditApplicationFile, FileResource, HouseLoanApplication, Lead, LeadAssignment, LeadNote, LeadPriority, LeadStatus, SiteEvent, SiteSettings, UserRole } from "@/lib/types";
+import type { Article, ArticleCategory, ArticleComplianceFlags, AuditLog, BusinessLoanApplication, CreditApplication, CreditApplicationFile, FileResource, HouseLoanApplication, Lead, LeadAssignment, LeadNote, LeadPriority, LeadStatus, LineDocumentStatus, SiteEvent, SiteSettings, UserRole } from "@/lib/types";
 
 type User = { id: string; name: string; email: string; role: UserRole; twoFactorEnabled: boolean };
 type Specialist = { id: string; name: string; email: string; role: string };
@@ -175,6 +175,13 @@ const creditFileStatusLabels: Record<CreditApplicationFile["uploadStatus"], stri
   validation_failed: "格式驗證失敗",
   pending_reupload: "待重傳",
   deleted: "已刪除",
+};
+const lineDocumentStatusLabels: Record<LineDocumentStatus, string> = {
+  not_reminded: "尚未提醒",
+  reminded: "已提醒補件",
+  line_received: "LINE 已收到",
+  pending_documents: "待補文件",
+  confirmed: "已確認完整",
 };
 const priorityLabels: Record<LeadPriority, string> = {
   normal: "一般",
@@ -703,6 +710,8 @@ export function AdminApp() {
     doNotContact?: boolean;
     deletionRequested?: boolean;
     privacyRequestNote?: string;
+    houseDocumentLineStatus?: LineDocumentStatus;
+    businessDocumentLineStatus?: LineDocumentStatus;
   }) {
     if (!selected) return;
     const response = await fetch(`/api/admin/leads/${selected.id}`, {
@@ -710,13 +719,17 @@ export function AdminApp() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(update),
     });
-    const json = (await response.json().catch(() => ({}))) as { lead?: Lead; assignments?: LeadAssignment[]; message?: string };
+    const json = (await response.json().catch(() => ({}))) as LeadDetailPayload & { message?: string };
     if (!response.ok || !json.lead) {
       setMessage(json.message || "線索更新失敗。");
       return;
     }
     setSelected(json.lead);
     setAssignments(json.assignments || []);
+    setCreditApplication(json.creditApplication || null);
+    setCreditApplicationFiles(json.creditApplicationFiles || []);
+    setHouseLoanApplication(json.houseLoanApplication || null);
+    setBusinessLoanApplication(json.businessLoanApplication || null);
     await hydrate(leadFilters);
   }
 
@@ -1497,7 +1510,18 @@ export function AdminApp() {
                       <span>持有狀態：{houseLoanApplication.ownershipStatus || "未填"}</span>
                       <span>期望金額：{houseLoanApplication.requestedAmount ? houseLoanApplication.requestedAmount.toLocaleString("zh-TW") : "未填"}</span>
                       <span>期望年限：{houseLoanApplication.requestedTermYears || "未填"} 年</span>
-                      <span>補件狀態：{houseLoanApplication.documentLineStatus}</span>
+                      <label className="full-field">
+                        LINE 補件狀態
+                        <select
+                          value={houseLoanApplication.documentLineStatus}
+                          onChange={(event) => updateLead({ houseDocumentLineStatus: event.target.value as LineDocumentStatus })}
+                        >
+                          {Object.entries(lineDocumentStatusLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <small>權狀、收入證明、稅單與存摺不在本站普通表單上傳；此處只記錄 LINE 補件進度。</small>
                     </div>
                   ) : null}
                   {selected.loanType === "business" ? (
@@ -1519,7 +1543,18 @@ export function AdminApp() {
                       <span>營業年數：{businessLoanApplication.operatingYears ?? "未填"}</span>
                       <span>月營收區間：{businessLoanApplication.monthlyRevenueRange || "未填"}</span>
                       <span>期望金額：{businessLoanApplication.requestedAmount ? businessLoanApplication.requestedAmount.toLocaleString("zh-TW") : "未填"}</span>
-                      <span>補件狀態：{businessLoanApplication.documentLineStatus}</span>
+                      <label className="full-field">
+                        LINE 補件狀態
+                        <select
+                          value={businessLoanApplication.documentLineStatus}
+                          onChange={(event) => updateLead({ businessDocumentLineStatus: event.target.value as LineDocumentStatus })}
+                        >
+                          {Object.entries(lineDocumentStatusLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <small>報稅資料、流水、執照與負責人財力證明不在本站普通表單上傳；此處只記錄 LINE 補件進度。</small>
                     </div>
                   ) : null}
                   {selected.duplicateOf ? <p className="privacy-alert">此線索可能與 {selected.duplicateOf} 重複，請先比對手機或 LINE ID。</p> : null}

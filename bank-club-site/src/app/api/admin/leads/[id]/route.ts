@@ -4,7 +4,7 @@ import { canUpdateLead, canViewLead, isSameOriginRequest, requireAdmin } from "@
 import { detectSensitiveLeadNote } from "@/lib/sensitive-content";
 import { statusLabels } from "@/lib/site-data";
 import { createAudit, mutateDB, readDB } from "@/lib/store";
-import type { LeadPriority, LeadStatus } from "@/lib/types";
+import type { LeadPriority, LeadStatus, LineDocumentStatus } from "@/lib/types";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -26,9 +26,18 @@ const contactedStatuses = new Set<LeadStatus>([
   "invalid",
   "closed",
 ]);
+const lineDocumentStatuses = new Set<LineDocumentStatus>(["not_reminded", "reminded", "line_received", "pending_documents", "confirmed"]);
 
 function isValidOptionalDateTime(value: string) {
   return value.trim() === "" || Number.isFinite(Date.parse(value));
+}
+
+function leadDocumentStatusFromLineStatus(status: LineDocumentStatus) {
+  if (status === "line_received") return "received";
+  if (status === "pending_documents") return "incomplete";
+  if (status === "confirmed") return "confirmed";
+  if (status === "reminded") return "pending";
+  return "not_requested";
 }
 
 export async function GET(_: Request, { params }: Params) {
@@ -81,9 +90,17 @@ export async function PATCH(request: Request, { params }: Params) {
     doNotContact?: boolean;
     deletionRequested?: boolean;
     privacyRequestNote?: string;
+    houseDocumentLineStatus?: LineDocumentStatus;
+    businessDocumentLineStatus?: LineDocumentStatus;
   };
   if (body.status && !(body.status in statusLabels)) {
     return NextResponse.json({ message: "未知的案件狀態" }, { status: 400 });
+  }
+  if (body.houseDocumentLineStatus && !lineDocumentStatuses.has(body.houseDocumentLineStatus)) {
+    return NextResponse.json({ message: "未知的房貸補件狀態" }, { status: 400 });
+  }
+  if (body.businessDocumentLineStatus && !lineDocumentStatuses.has(body.businessDocumentLineStatus)) {
+    return NextResponse.json({ message: "未知的企業貸補件狀態" }, { status: 400 });
   }
   const nextFollowUpAt = typeof body.nextFollowUpAt === "string" ? body.nextFollowUpAt.trim() : undefined;
   if (nextFollowUpAt !== undefined && !isValidOptionalDateTime(nextFollowUpAt)) {
@@ -141,6 +158,26 @@ export async function PATCH(request: Request, { params }: Params) {
     if (typeof body.doNotContact === "boolean") item.doNotContact = body.doNotContact;
     if (typeof body.deletionRequested === "boolean") item.deletionRequested = body.deletionRequested;
     if (privacyRequestNote !== undefined) item.privacyRequestNote = privacyRequestNote;
+    if (body.houseDocumentLineStatus) {
+      const application = db.houseLoanApplications.find((entry) => entry.leadId === id);
+      if (!application) return "invalid_application";
+      application.documentLineStatus = body.houseDocumentLineStatus;
+      application.updatedAt = updatedAt;
+      item.documentStatus = leadDocumentStatusFromLineStatus(body.houseDocumentLineStatus);
+      if (body.houseDocumentLineStatus === "pending_documents") item.status = "pending_documents";
+      if (body.houseDocumentLineStatus === "line_received") item.status = "documents_received";
+      db.auditLogs.unshift(createAudit(user.id, "house_line_documents_updated", "house_loan_application", application.id));
+    }
+    if (body.businessDocumentLineStatus) {
+      const application = db.businessLoanApplications.find((entry) => entry.leadId === id);
+      if (!application) return "invalid_application";
+      application.documentLineStatus = body.businessDocumentLineStatus;
+      application.updatedAt = updatedAt;
+      item.documentStatus = leadDocumentStatusFromLineStatus(body.businessDocumentLineStatus);
+      if (body.businessDocumentLineStatus === "pending_documents") item.status = "pending_documents";
+      if (body.businessDocumentLineStatus === "line_received") item.status = "documents_received";
+      db.auditLogs.unshift(createAudit(user.id, "business_line_documents_updated", "business_loan_application", application.id));
+    }
     item.updatedAt = updatedAt;
     if (
       previousPrivacyState.doNotContact !== item.doNotContact ||
@@ -155,10 +192,15 @@ export async function PATCH(request: Request, { params }: Params) {
 
   if (lead === "forbidden") return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   if (lead === "invalid_assignee") return NextResponse.json({ message: "請選擇有效專員" }, { status: 400 });
+  if (lead === "invalid_application") return NextResponse.json({ message: "找不到對應的貸款申請資料" }, { status: 400 });
   if (!lead) return NextResponse.json({ message: "Not found" }, { status: 404 });
   const db = await readDB();
   return NextResponse.json({
     lead,
     assignments: db.leadAssignments.filter((assignment) => assignment.leadId === id),
+    creditApplication: db.creditApplications.find((application) => application.leadId === id) || null,
+    creditApplicationFiles: db.creditApplicationFiles.filter((file) => file.applicationId === db.creditApplications.find((application) => application.leadId === id)?.id),
+    houseLoanApplication: db.houseLoanApplications.find((application) => application.leadId === id) || null,
+    businessLoanApplication: db.businessLoanApplications.find((application) => application.leadId === id) || null,
   });
 }
