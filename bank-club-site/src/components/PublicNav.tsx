@@ -26,7 +26,8 @@ export function PublicNav({ items }: { items: NavItem[] }) {
           return (
             <details key={item.label} className="nav-group">
               <summary className={active ? "active" : undefined}>
-                {item.label}
+                <span>{item.label}</span>
+                <span className="nav-caret" aria-hidden="true" />
               </summary>
               <div className="nav-menu">
                 {item.children.map((child) => {

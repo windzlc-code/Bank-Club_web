@@ -1652,7 +1652,7 @@ async function checkLoanApplicationTabReadiness(origin: string): Promise<LaunchC
     {
       path: "/credit-loan",
       appId: "credit-application",
-      selectedTab: "credit-apply",
+      selectedTab: "",
       requiredSelects: ["loanType", "desiredAmount", "purpose", "requestedAmount", "requestedTermYears", "caseSource", "programType"],
       requiredInputs: ["name", "phone", "lineId", "idFront", "idBack", "consent"],
       requiredFileInputs: ["idFront", "idBack"],
@@ -1688,14 +1688,14 @@ async function checkLoanApplicationTabReadiness(origin: string): Promise<LaunchC
         continue;
       }
 
-      const appMatch = html.match(new RegExp(`<div[^>]+id=["']${requirement.appId}["'][\\s\\S]*?<\\/form>\\s*<\\/div>`, "i"));
+      const appMatch = html.match(new RegExp(`<(?:div|section)[^>]+id=["']${requirement.appId}["'][\\s\\S]*?<\\/form>\\s*<\\/(?:div|section)>`, "i"));
       const appHtml = appMatch?.[0] || "";
       if (!appHtml) {
         failures.push(`${requirement.path}:缺少 ${requirement.appId} 表單區`);
         continue;
       }
       if (!/class=["'][^"']*\bloan-application-card\b/i.test(appHtml)) failures.push(`${requirement.path}:表單未使用居中穩定容器`);
-      if (!html.includes(`aria-controls="${requirement.selectedTab}-panel"`) || !html.includes(`data-active-tab="${requirement.selectedTab}"`)) {
+      if (requirement.selectedTab && (!html.includes(`aria-controls="${requirement.selectedTab}-panel"`) || !html.includes(`data-active-tab="${requirement.selectedTab}"`))) {
         failures.push(`${requirement.path}:預設未停在站內申請 tab`);
       }
 
@@ -1743,9 +1743,9 @@ async function checkOfficialApplyWarning(origin: string, db: Awaited<ReturnType<
     const officialHref = db.settings.officialApplyUrl;
     const officialLinks = extractAnchorTags(html).filter((tag) => extractAttribute(tag, "href") === officialHref);
     const failures: string[] = [];
-    const creditApplyLink = extractAnchorTags(html).find((tag) => extractAttribute(tag, "href") === "#credit-apply" && extractAttribute(tag, "data-event-name") === "credit_form_click");
+    const creditApplyLink = extractAnchorTags(html).find((tag) => extractAttribute(tag, "href") === "#credit-application" && extractAttribute(tag, "data-event-name") === "credit_form_click");
     if (!creditApplyLink) failures.push("缺少信貸站內申請 CTA");
-    if (!html.includes("站內信貸網路申請")) failures.push("缺少站內信貸申請頁籤");
+    if (!html.includes("站內信貸網路申請")) failures.push("缺少站內信貸申請區塊");
     if (!html.includes("本站信貸申請只收身分證正反面")) failures.push("缺少信貸敏感資料最小化提醒");
     if (officialLinks.length) failures.push("信貸頁仍含銀行外站官方申請主 CTA");
 

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { connection } from "next/server";
 import { EventLink } from "./EventLink";
-import { LanguageToggle } from "./LanguageToggle";
+import { Icon } from "./Icons";
 import { PageViewTracker } from "./PageViewTracker";
 import { PublicNav } from "./PublicNav";
 import { fbHref } from "@/lib/fb-links";
@@ -21,9 +21,9 @@ const nav = [
       { label: "企業貸款", href: "/business-loan" },
     ],
   },
-  { label: "申請流程教學", href: "/application-flow" },
+  { label: "申辦流程", href: "/application-flow" },
   { label: "銀行資格與文件總整理", href: "/documents" },
-  { label: "常見 QA", href: "/qa" },
+  { label: "常見QA", href: "/qa" },
   { label: "免費諮詢預約", href: "/consultation" },
   { label: "FB 銀行俱樂部社團", href: "/facebook" },
 ];
@@ -38,7 +38,9 @@ export function Header({ settings }: { settings: SiteSettings }) {
       </Link>
       <PublicNav items={nav} />
       <div className="header-actions">
-        <LanguageToggle />
+        <EventLink className="icon-btn" href="/blog#article-search" eventName="header_search_click" metadata={{ sourcePage: "header", destination: "/blog#article-search" }} ariaLabel="搜尋文章">
+          <Icon name="search" />
+        </EventLink>
         <EventLink className="line-btn" href={headerLineHref} eventName="header_line_click" target={headerLineHref.startsWith("http") ? "_blank" : undefined} ariaLabel="聯絡我們 / LINE 諮詢">
           <span className="line-dot">LINE</span>
           LINE諮詢
