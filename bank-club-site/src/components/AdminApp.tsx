@@ -1522,6 +1522,20 @@ export function AdminApp() {
                               {file.deletedAt ? `｜刪除：${new Date(file.deletedAt).toLocaleString("zh-TW")}` : ""}
                             </small>
                             <div className="row-actions">
+                              <a
+                                aria-disabled={file.uploadStatus === "deleted"}
+                                href={file.uploadStatus === "deleted" ? undefined : `/api/admin/credit-application-files/${file.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                查看圖片
+                              </a>
+                              <a
+                                aria-disabled={file.uploadStatus === "deleted"}
+                                href={file.uploadStatus === "deleted" ? undefined : `/api/admin/credit-application-files/${file.id}?download=1`}
+                              >
+                                下載文件
+                              </a>
                               <button
                                 type="button"
                                 disabled={file.uploadStatus === "pending_reupload" || file.uploadStatus === "deleted"}

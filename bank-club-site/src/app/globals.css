@@ -2071,6 +2071,12 @@ summary,
   padding: 8px 12px;
 }
 
+.row-actions a[aria-disabled="true"] {
+  color: #9aa3ad;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .privacy-alert {
   background: #fff0e6;
   border: 1px solid #ecc7a8;
